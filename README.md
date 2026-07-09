@@ -5,7 +5,13 @@ JDG(ジャッジ・ディクレアード・ゴール)競技のミニマムな一
 
 仕様の検討経緯は [仕様検討メモ.md](./仕様検討メモ.md) を参照してください。
 
-## 遊び方
+## 遊び方(ブラウザで開くだけ)
+
+インストール不要。以下のURLを開くだけで遊べます(GitHub Pages)。
+
+**https://rhitomigm-hash.github.io/hot-air-balloon1/prototype/**
+
+## ローカルで動かす場合
 
 ビルド不要。ローカルで静的ファイルを配信して `prototype/index.html` を開くだけです。
 

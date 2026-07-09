@@ -109,6 +109,8 @@ const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 40
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enablePan = false;
 controls.maxPolarAngle = Math.PI * 0.52;
+controls.minDistance = 25;
+controls.maxDistance = 600;
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -124,11 +126,6 @@ function buildBalloon() {
   env.scale.set(1, 1.12, 1);
   env.position.y = 16.5;
   g.add(env);
-  const skirt = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.5, 1.6, 6.5, 16, 1, true),
-    new THREE.MeshLambertMaterial({ color: 0x7b1a1a, side: THREE.DoubleSide }));
-  skirt.position.y = 4.6;
-  g.add(skirt);
   const basket = new THREE.Mesh(
     new THREE.BoxGeometry(1.4, 1.1, 1.4),
     new THREE.MeshLambertMaterial({ color: 0x6d4c2f }));
@@ -188,10 +185,27 @@ let started = false;     // 離陸済みかどうか(物理・時計は離陸後
 let remaining = TASK_LIMIT_S;
 let expired = false;
 
+// 一人称視点(ゴンドラ視点)。目の位置は固定し、視線方向だけをドラッグで回す
+let fpvYaw = 0, fpvPitch = 0;
+const EYE_HEIGHT = 1.85;
+const LOOK_SPEED = 0.0038;
+const PITCH_LIMIT = THREE.MathUtils.degToRad(85);
+const look = { dragging: false, lastX: 0, lastY: 0 };
+
 addEventListener('keydown', (e) => {
   if (e.code === 'Space') { input.burner = true; e.preventDefault(); }
   if (e.code === 'KeyR') input.rip = true;
-  if (e.code === 'KeyV') { fpv = !fpv; applyViewMode(); }
+  if (e.code === 'KeyV' && started) {
+    fpv = !fpv;
+    applyViewMode();
+    if (!fpv) {
+      // ゴンドラ視点から戻るときは、見ていた方向の後方に回り込む
+      const horiz = new THREE.Vector3(Math.sin(fpvYaw), 0, -Math.cos(fpvYaw));
+      const tgt = new THREE.Vector3(state.pos.x, state.pos.y + 12, state.pos.z);
+      camera.position.copy(tgt).addScaledVector(horiz, -90).add(new THREE.Vector3(0, 35, 0));
+      controls.target.copy(tgt);
+    }
+  }
   if (e.code === 'KeyM' && flightReady) dropMarker();
   if (e.code === 'KeyP') {
     const p = document.getElementById('pibal');
@@ -207,18 +221,32 @@ addEventListener('keyup', (e) => {
   if (e.code === 'KeyR') input.rip = false;
 });
 
+// ゴンドラ視点でのマウスルック(ドラッグで視線方向を回転。目の位置は動かさない)
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (!fpv || !started) return;
+  look.dragging = true;
+  look.lastX = e.clientX;
+  look.lastY = e.clientY;
+});
+addEventListener('mousemove', (e) => {
+  if (!look.dragging) return;
+  const dx = e.clientX - look.lastX, dy = e.clientY - look.lastY;
+  look.lastX = e.clientX;
+  look.lastY = e.clientY;
+  fpvYaw -= dx * LOOK_SPEED;
+  fpvPitch = THREE.MathUtils.clamp(fpvPitch - dy * LOOK_SPEED, -PITCH_LIMIT, PITCH_LIMIT);
+});
+addEventListener('mouseup', () => { look.dragging = false; });
+
 function applyViewMode() {
   if (fpv) {
-    controls.minDistance = 0.7;
-    controls.maxDistance = 0.7;
+    // 現在の視線方向を引き継いでゴンドラ視点に入る(切り替え時の違和感を減らす)
+    const dir = new THREE.Vector3().subVectors(controls.target, camera.position).normalize();
+    fpvYaw = Math.atan2(dir.x, -dir.z);
+    fpvPitch = Math.asin(THREE.MathUtils.clamp(dir.y, -1, 1));
+    controls.enabled = false;
   } else {
-    controls.minDistance = 25;
-    controls.maxDistance = 600;
-    // ゴンドラ視点から戻るときはやや後方へ引く
-    if (camera.position.distanceTo(controls.target) < 20) {
-      const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
-      camera.position.copy(controls.target).addScaledVector(dir, 90);
-    }
+    controls.enabled = true;
   }
 }
 
@@ -769,6 +797,69 @@ function stepPhysics(dt) {
   return w;
 }
 
+// ---- コンパス(カメラの向き=画面正面の磁方位。ターゲット方向をオレンジ印で表示) ----
+const compassCv = document.getElementById('compass');
+const compassCtx = compassCv.getContext('2d');
+const camDirTmp = new THREE.Vector3();
+
+function drawCompass() {
+  camera.getWorldDirection(camDirTmp);
+  const heading = (Math.atan2(camDirTmp.x, -camDirTmp.z) * 180 / Math.PI + 360) % 360;
+
+  const ctx = compassCtx;
+  const W = compassCv.width, C = W / 2, R = W / 2 - 10;
+  ctx.clearRect(0, 0, W, W);
+
+  // 文字盤(視線方向が常に上。北の文字が回る)
+  ctx.save();
+  ctx.translate(C, C);
+  ctx.rotate((-heading * Math.PI) / 180);
+  for (let d = 0; d < 360; d += 30) {
+    const rad = (d * Math.PI) / 180;
+    const isCard = d % 90 === 0;
+    ctx.strokeStyle = isCard ? '#e8f0f6' : '#5a7085';
+    ctx.lineWidth = isCard ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.sin(rad) * (R - (isCard ? 12 : 7)), -Math.cos(rad) * (R - (isCard ? 12 : 7)));
+    ctx.lineTo(Math.sin(rad) * R, -Math.cos(rad) * R);
+    ctx.stroke();
+  }
+  ctx.font = 'bold 20px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const cards = [['N', 0, '#ff5252'], ['E', 90, '#e8f0f6'], ['S', 180, '#e8f0f6'], ['W', 270, '#e8f0f6']];
+  for (const [label, deg, color] of cards) {
+    const rad = (deg * Math.PI) / 180;
+    ctx.save();
+    ctx.translate(Math.sin(rad) * (R - 26), -Math.cos(rad) * (R - 26));
+    ctx.rotate((heading * Math.PI) / 180); // 文字自体は正立させる
+    ctx.fillStyle = color;
+    ctx.fillText(label, 0, 0);
+    ctx.restore();
+  }
+  // ターゲット方向(オレンジの印)
+  const brgT = Math.atan2(TARGET_XZ.x - state.pos.x, -(TARGET_XZ.z - state.pos.z));
+  ctx.fillStyle = '#ff5a00';
+  ctx.beginPath();
+  ctx.arc(Math.sin(brgT) * (R - 5), -Math.cos(brgT) * (R - 5), 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 視線方向の固定ポインタ(上向き三角)と数値
+  ctx.fillStyle = '#ffd54f';
+  ctx.beginPath();
+  ctx.moveTo(C, 4);
+  ctx.lineTo(C - 7, 18);
+  ctx.lineTo(C + 7, 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e8f0f6';
+  ctx.font = 'bold 16px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${String(Math.round(heading)).padStart(3, '0')}°`, C, C);
+}
+
 // ---- HUD ----
 const hud = {
   altFt: document.getElementById('alt-ft'),
@@ -813,9 +904,14 @@ const prevPos = state.pos.clone();
 const clock = new THREE.Clock();
 let lastDetailCheck = 0;
 
-// デバッグ用: ?autostart=1 でブリーフィングを飛ばして即離陸(自動テスト向け)
+// デバッグ用: ?autostart=1 でブリーフィングを飛ばして即離陸(自動テスト向け)。
+// ?fpv=1 を併用するとゴンドラ視点で開始(視点確認用)
 if (new URLSearchParams(location.search).has('autostart')) {
   startFlight(800, 1800);
+  if (new URLSearchParams(location.search).has('fpv')) {
+    fpv = true;
+    applyViewMode();
+  }
 }
 
 renderer.setAnimationLoop(() => {
@@ -830,13 +926,22 @@ renderer.setAnimationLoop(() => {
     balloon.flame.visible = input.burner && state.fuel > 0;
     balloon.flameLight.intensity = balloon.flame.visible ? 40 : 0;
 
-    // カメラは気球に追従(ターゲット+同じ分だけ平行移動)
-    const delta = new THREE.Vector3().subVectors(state.pos, prevPos);
-    camera.position.add(delta);
-    controls.target.copy(state.pos).add(new THREE.Vector3(0, fpv ? 1.7 : 12, 0));
+    if (fpv) {
+      // ゴンドラ視点: 目の位置は気球に固定し、視線方向だけドラッグで回す
+      camera.position.set(state.pos.x, state.pos.y + EYE_HEIGHT, state.pos.z);
+      const cy = Math.cos(fpvPitch), sy = Math.sin(fpvPitch);
+      const dir = new THREE.Vector3(Math.sin(fpvYaw) * cy, sy, -Math.cos(fpvYaw) * cy);
+      camera.lookAt(camera.position.x + dir.x, camera.position.y + dir.y, camera.position.z + dir.z);
+    } else {
+      // カメラは気球に追従(ターゲット+同じ分だけ平行移動)
+      const delta = new THREE.Vector3().subVectors(state.pos, prevPos);
+      camera.position.add(delta);
+      controls.target.copy(state.pos).add(new THREE.Vector3(0, 12, 0));
+    }
     prevPos.copy(state.pos);
 
     updateHud(w);
+    drawCompass();
 
     // 気球の近くの地面を段階的に高解像度化(1.5秒おきに1枚ずつ)。
     // 低高度では直下の1タイルだけさらにz17(≒1m/px)へ
@@ -848,6 +953,6 @@ renderer.setAnimationLoop(() => {
     }
   }
 
-  controls.update();
+  if (!fpv) controls.update();
   renderer.render(scene, camera);
 });
