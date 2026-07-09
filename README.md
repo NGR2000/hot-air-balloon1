@@ -9,7 +9,9 @@ JDG(ジャッジ・ディクレアード・ゴール)競技のミニマムな一
 
 インストール不要。以下のURLを開くだけで遊べます(GitHub Pages)。
 
-**https://rhitomigm-hash.github.io/hot-air-balloon1/prototype/**
+**PC版**: https://rhitomigm-hash.github.io/hot-air-balloon1/prototype/
+
+**スマホ版**(タッチ操作対応): https://rhitomigm-hash.github.io/hot-air-balloon1/mobile/
 
 ## ローカルで動かす場合
 
