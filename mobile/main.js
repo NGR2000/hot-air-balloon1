@@ -28,7 +28,7 @@ function decodeArea(s) {
   return { lon, lat };
 }
 
-// パイバル観測データ。高度ft(MSL) / 風向FROM 磁方位° / 風速kt
+// パイバル観測データ。高度ft(対地=AGL) / 風向FROM 磁方位° / 風速kt
 const WIND_PRESETS = [
   { name: '佐賀・朝の順転(既定)',
     rows: [[0, 140, 3], [500, 160, 5], [1000, 190, 7], [2000, 220, 10], [3000, 240, 13], [5000, 260, 17]] },
@@ -70,8 +70,11 @@ const MARKER_TERMINAL = 10;              // 終端速度 m/s
 const MARKER_DRAG = 9.81 / MARKER_TERMINAL;
 const MARKER_WIND_TAU = 1.5;             // 水平速度が風に馴染む時定数 s
 
-function windAt(altM) {
-  const ft = altM * M2FT;
+// 風テーブルの高度は対地(AGL)基準。MSL基準だと標高の高いエリアで
+// 低高度レイヤーが地面より下になり使えなくなるため、その地点の地表からの高さで引く
+function windAt(x, z, altM) {
+  const agl = Math.max(0, altM - terrain.getHeight(x, z));
+  const ft = agl * M2FT;
   let a = PIBAL[0], b = PIBAL[PIBAL.length - 1];
   if (ft <= a.ft) b = a;
   else if (ft >= b.ft) a = b;
@@ -444,6 +447,13 @@ document.getElementById('btn-speed').addEventListener('click', () => {
   setTimeScale(order[(order.indexOf(timeScale) + 1) % order.length]);
 });
 document.getElementById('btn-pibal').addEventListener('click', togglePibal);
+
+// 計器パネルはスマホでは既定コンパクト(必須計器のみ)。タップで詳細行を開閉する
+const instrumentsEl = document.getElementById('instruments');
+instrumentsEl.addEventListener('click', () => {
+  const compact = instrumentsEl.classList.toggle('compact');
+  document.getElementById('hud-toggle').textContent = compact ? 'タップで詳細 ▾' : '閉じる ▴';
+});
 
 // ゴンドラ視点でのルック操作(マウス/タッチ共通。ドラッグで視線方向を回転、目の位置は動かさない)
 renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -960,7 +970,7 @@ const marker = { available: 1, state: null, mesh: null };
 function dropMarker() {
   if (marker.available <= 0 || state.grounded || expired) return;
   marker.available = 0;
-  const w = windAt(state.pos.y);
+  const w = windAt(state.pos.x, state.pos.z, state.pos.y);
   marker.state = {
     pos: state.pos.clone().add(new THREE.Vector3(0, 0.8, 0)),
     vel: new THREE.Vector3(w.vx, state.vy, w.vz), // 気球(=風)の速度を引き継ぐ
@@ -975,7 +985,7 @@ function dropMarker() {
 function stepMarker(dt) {
   const m = marker.state;
   if (!m || m.landed) return;
-  const w = windAt(m.pos.y);
+  const w = windAt(m.pos.x, m.pos.z, m.pos.y);
   // 鉛直: 重力+空気抵抗(終端速度 MARKER_TERMINAL)/ 水平: 風に漸近
   m.vel.y += (-9.81 - MARKER_DRAG * m.vel.y) * dt;
   m.vel.x += ((w.vx - m.vel.x) / MARKER_WIND_TAU) * dt;
@@ -1063,7 +1073,7 @@ function stepPhysics(dt) {
   state.vy += acc * dt;
   state.pos.y += state.vy * dt;
 
-  const w = windAt(state.pos.y);
+  const w = windAt(state.pos.x, state.pos.z, state.pos.y);
   if (!state.grounded) {
     state.pos.x += w.vx * dt;
     state.pos.z += w.vz * dt;
@@ -1159,7 +1169,8 @@ const hud = {
 };
 function updateHud(w) {
   const ground = terrain.getHeight(state.pos.x, state.pos.z);
-  hud.altFt.textContent = Math.round(state.pos.y * M2FT);
+  // 大きな高度表示は対地ft(パイバル表と同じ基準で風を読めるように)
+  hud.altFt.textContent = Math.round((state.pos.y - ground) * M2FT);
   hud.altM.textContent = Math.round(state.pos.y);
   hud.agl.textContent = Math.round(state.pos.y - ground);
   hud.vario.textContent = (state.vy >= 0 ? '+' : '') + state.vy.toFixed(1);
