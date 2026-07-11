@@ -272,6 +272,30 @@ function buildBalloon() {
   return { group: g, flame, flameLight, envInnerMat, rope, ropeBaseY };
 }
 
+// ---- 気球の擬似影 ----
+// 真下の地面に置く円形の暗がり。対地高度が上がるほど大きく・薄くなり、
+// 高さの目安になる(ライトのシャドウマップより軽く、広域地形でも破綻しない)
+function buildShadowMesh() {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const ctx = cv.getContext('2d');
+  const grad = ctx.createRadialGradient(64, 64, 10, 64, 64, 62);
+  grad.addColorStop(0, 'rgba(0,0,0,0.9)');
+  grad.addColorStop(0.65, 'rgba(0,0,0,0.55)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(cv),
+      transparent: true, depthWrite: false, opacity: 0.55,
+    }));
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.renderOrder = 1; // 地形の上に重ねて描く
+  return mesh;
+}
+
 // ---- JDGターゲット(オレンジのX+白リング) ----
 function buildTarget(x, z, groundY) {
   const g = new THREE.Group();
@@ -322,12 +346,19 @@ function buildMarkerMesh() {
 // ---- サウンド(Web Audio合成、外部ファイル不要) ----
 // ブラウザの自動再生制限があるため、初回のユーザー操作で初期化し、
 // suspended のままなら操作のたびに resume する(前回鳴らなかった原因への対処)
-let audioCtx = null, burnerGain = null, ripGain = null, windGain = null;
+let audioCtx = null, masterGain = null, burnerGain = null, ripGain = null, windGain = null;
 let sndBurnerOn = false, sndRipOn = false;
+
+// サウンドのオン/オフ設定(localStorageに保存)。マスターゲインで一括ミュートする
+const SOUND_KEY = 'balloon-sound';
+let soundOn = localStorage.getItem(SOUND_KEY) !== 'off';
 
 function ensureAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = soundOn ? 1 : 0;
+    masterGain.connect(audioCtx.destination);
     const noise = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
     const d = noise.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -341,7 +372,7 @@ function ensureAudio() {
       filter.Q.value = q;
       const gainNode = audioCtx.createGain();
       gainNode.gain.value = 0;
-      src.connect(filter).connect(gainNode).connect(audioCtx.destination);
+      src.connect(filter).connect(gainNode).connect(masterGain);
       src.start();
       return gainNode;
     };
@@ -447,6 +478,18 @@ document.getElementById('btn-speed').addEventListener('click', () => {
   setTimeScale(order[(order.indexOf(timeScale) + 1) % order.length]);
 });
 document.getElementById('btn-pibal').addEventListener('click', togglePibal);
+
+// サウンドのオン/オフ切替ボタン
+const soundBtn = document.getElementById('btn-sound');
+const renderSoundBtn = () => { soundBtn.textContent = soundOn ? '音 ON' : '音 OFF'; };
+renderSoundBtn();
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  localStorage.setItem(SOUND_KEY, soundOn ? 'on' : 'off');
+  ensureAudio(); // ボタン操作はユーザージェスチャなのでここでresumeも通る
+  masterGain.gain.setTargetAtTime(soundOn ? 1 : 0, audioCtx.currentTime, 0.05);
+  renderSoundBtn();
+});
 
 // 計器パネルはスマホでは既定コンパクト(必須計器のみ)。タップで詳細行を開閉する
 const instrumentsEl = document.getElementById('instruments');
@@ -959,6 +1002,18 @@ function startFlight(x, z) {
 
 const balloon = buildBalloon();
 scene.add(balloon.group);
+const balloonShadow = buildShadowMesh();
+scene.add(balloonShadow);
+
+// 毎フレーム: 影を気球直下の地面に置き、対地高度でサイズと濃さを変える
+function updateShadow() {
+  const groundY = terrain.getHeight(state.pos.x, state.pos.z);
+  const agl = Math.max(0, state.pos.y - groundY);
+  balloonShadow.position.set(state.pos.x, groundY + 0.8, state.pos.z);
+  const size = Math.min(19 + agl * 0.05, 60); // 球皮直径≒18mを基準に高いほどぼやけて拡大
+  balloonShadow.scale.set(size, size, 1);
+  balloonShadow.material.opacity = Math.max(0.07, 0.55 * 300 / (300 + agl));
+}
 
 const targetGroundY = terrain.getHeight(TARGET_XZ.x, TARGET_XZ.z);
 const target = buildTarget(TARGET_XZ.x, TARGET_XZ.z, targetGroundY);
@@ -1229,6 +1284,7 @@ renderer.setAnimationLoop(() => {
     updateSounds(w.kt);
 
     balloon.group.position.copy(state.pos);
+    updateShadow();
     balloon.flame.visible = input.burner && state.fuel > 0;
     balloon.flameLight.intensity = balloon.flame.visible ? 40 : 0;
 
