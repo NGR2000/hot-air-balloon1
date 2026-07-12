@@ -888,7 +888,8 @@ function dropMarker() {
   scene.add(marker.mesh);
   document.getElementById('marker-info').textContent = '投下!';
   markerTrailElapsed = 0;
-  markerTrail = [{ t: 0, pos: marker.state.pos.clone() }];
+  // 各サンプルにその瞬間の気球位置(balloonPos)も記録し、リプレイで気球ごと再現できるようにする
+  markerTrail = [{ t: 0, pos: marker.state.pos.clone(), balloonPos: state.pos.clone() }];
 }
 
 // rawDt: 実時間の経過秒(タイムスケールの影響を受けない)。リプレイの記録専用
@@ -903,14 +904,15 @@ function stepMarker(dt, rawDt) {
   m.pos.addScaledVector(m.vel, dt);
 
   markerTrailElapsed += rawDt;
-  markerTrail.push({ t: markerTrailElapsed, pos: m.pos.clone() });
+  markerTrail.push({ t: markerTrailElapsed, pos: m.pos.clone(), balloonPos: state.pos.clone() });
 
   const ground = terrain.getHeight(m.pos.x, m.pos.z);
   if (m.pos.y <= ground) {
     m.pos.y = ground + 0.3;
     m.landed = true;
     marker.mesh.position.copy(m.pos);
-    markerTrail.push({ t: markerTrailElapsed, pos: m.pos.clone() }); // 着地位置を確定点として追加
+    // 着地位置を確定点として追加
+    markerTrail.push({ t: markerTrailElapsed, pos: m.pos.clone(), balloonPos: state.pos.clone() });
     onMarkerLanded(m.pos);
     return;
   }
@@ -920,6 +922,7 @@ function stepMarker(dt, rawDt) {
 }
 
 const RESULT_SUSPENSE_MS = 3000; // 着地〜結果発表までの間(実時間。時間加速の影響を受けない)
+let measureLine = null; // 着地点→ターゲットの計測ライン。リプレイ中は着地するまで隠す
 
 function onMarkerLanded(pos) {
   const dist = Math.hypot(pos.x - TARGET_XZ.x, pos.z - TARGET_XZ.z);
@@ -928,7 +931,8 @@ function onMarkerLanded(pos) {
     new THREE.Vector3(pos.x, pos.y + 1, pos.z),
     new THREE.Vector3(TARGET_XZ.x, targetGroundY + 1, TARGET_XZ.z),
   ]);
-  scene.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xffee58 })));
+  measureLine = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0xffee58 }));
+  scene.add(measureLine);
   document.getElementById('marker-info').textContent = '計測中...';
   setTimeout(() => showResult(dist, null), RESULT_SUSPENSE_MS);
 }
@@ -970,18 +974,21 @@ function startReplay() {
   document.getElementById('result').style.display = 'none';
   replayPrevFpv = fpv;
   if (fpv) { fpv = false; applyViewMode(); }
+  if (measureLine) measureLine.visible = false; // 着地するまで計測ラインは隠す
 
-  const first = markerTrail[0].pos;
-  const focusStart = first.clone().add(new THREE.Vector3(0, 2, 0));
+  const first = markerTrail[0];
+  const focusStart = first.pos.clone().add(new THREE.Vector3(0, 2, 0));
   controls.target.copy(focusStart);
   camera.position.copy(focusStart).add(new THREE.Vector3(60, 35, 60));
+  balloon.group.position.copy(first.balloonPos); // 気球も投下時点の位置に戻す
 
   replay = {
     samples: markerTrail,
     duration: markerTrail[markerTrail.length - 1].t,
     t: 0,
     idx: 0,
-    prevFocus: first.clone(),
+    prevFocus: first.pos.clone(),
+    finished: false,
   };
 }
 
@@ -991,14 +998,20 @@ function endReplay() {
   document.getElementById('result').style.display = '';
 }
 
-// 実時間rawDtで記録済みの軌跡をなぞる。カメラは気球追従と同じ「差分平行移動」方式で追う
+// 実時間rawDtで記録済みの軌跡をなぞる。カメラは気球追従と同じ「差分平行移動」方式で追う。
+// マーカーだけでなく気球の位置も一緒に再現し、着地後は3秒の余韻を置いてから結果画面に戻る
 function stepReplay(rawDt) {
   const r = replay;
+  if (r.finished) return; // 結果表示までの余韻待ち中(setTimeoutが解決するのを待つだけ)
   r.t += rawDt;
   const samples = r.samples;
   if (r.t >= r.duration) {
-    marker.mesh.position.copy(samples[samples.length - 1].pos);
-    endReplay();
+    const last = samples[samples.length - 1];
+    marker.mesh.position.copy(last.pos);
+    balloon.group.position.copy(last.balloonPos);
+    if (measureLine) measureLine.visible = true; // 着地したので計測ラインを表示
+    r.finished = true;
+    setTimeout(endReplay, RESULT_SUSPENSE_MS);
     return;
   }
   let i = r.idx;
@@ -1009,6 +1022,7 @@ function stepReplay(rawDt) {
   const k = THREE.MathUtils.clamp((r.t - a.t) / span, 0, 1);
   const pos = a.pos.clone().lerp(b.pos, k);
   marker.mesh.position.copy(pos);
+  balloon.group.position.copy(a.balloonPos.clone().lerp(b.balloonPos, k));
 
   const focus = pos.clone().add(new THREE.Vector3(0, 2, 0));
   const delta = new THREE.Vector3().subVectors(focus, r.prevFocus);
