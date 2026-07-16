@@ -241,12 +241,13 @@ const STR = {
   },
 };
 
+// 既定は常に日本語。ブラウザの言語設定には依存せず、明示的な指定(URL/保存済み選択)がある時だけ英語にする
 function detectLang() {
   const urlLang = new URLSearchParams(location.search).get('lang');
   if (urlLang === 'en' || urlLang === 'ja') return urlLang;
   const saved = localStorage.getItem(LANG_KEY);
   if (saved === 'en' || saved === 'ja') return saved;
-  return navigator.language && navigator.language.startsWith('ja') ? 'ja' : 'en';
+  return 'ja';
 }
 
 export const LANG = detectLang();
