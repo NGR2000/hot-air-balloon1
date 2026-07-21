@@ -1,5 +1,5 @@
-// 多言語対応(日本語/英語)。辞書はここに集約し、HTML/main.js は t() 経由で参照する。
-// 言語判定の優先順位: URLの?lang= > localStorage保存値 > ブラウザ言語 > 既定(ja)
+// 多言語対応(日本語/英語/ポルトガル語/ポーランド語)。辞書はここに集約し、HTML/main.js は t() 経由で参照する。
+// 言語判定の優先順位: URLの?lang= > localStorage保存値 > ブラウザ言語 > 既定(en)
 const LANG_KEY = 'balloon-lang';
 
 const STR = {
@@ -175,8 +175,6 @@ const STR = {
 
     'loading.generic': '地形を読み込み中…',
     'loading.area': '{name} の地形を読み込み中…',
-
-    'lang.toggle': 'English',
 
     'area.saga': '佐賀・嘉瀬川',
     'area.watarase': '渡良瀬遊水地',
@@ -363,8 +361,6 @@ const STR = {
     'loading.generic': 'Loading terrain…',
     'loading.area': 'Loading terrain: {name}…',
 
-    'lang.toggle': '日本語',
-
     // 地名はローマ字表記(実際の英語圏の慣行が定まっていないため暫定。要フィードバック)
     'area.saga': 'Saga - Kasegawa River',
     'area.watarase': 'Watarase Retarding Basin',
@@ -378,14 +374,388 @@ const STR = {
     'windPreset.steady': 'Steady (South wind)',
     'windPreset.strongVeer': 'Strong Wind, Sharp Veer',
   },
+  pt: {
+    'meta.title': 'Voo de Balão (Mobile)',
+
+    'hud.altUnit': 'pés (solo)',
+    'hud.altMsl': 'Altitude (MSL)',
+    'hud.agl': 'Altura do solo',
+    'hud.vario': 'Variômetro',
+    'hud.windLabel': 'Vento (altitude atual)',
+    'hud.windLabelTo': 'Vento (altitude atual, PARA)',
+    'hud.fuel': 'Combustível',
+    'hud.envelopeTemp': 'Temp. do envelope',
+    'hud.timeScale': 'Velocidade ×',
+    'hud.status': 'Status',
+    'hud.statusGrounded': 'No solo',
+    'hud.statusFlying': 'Voando',
+    'hud.target': 'Alvo',
+    'hud.marker': 'Marcador',
+    'hud.markerRemaining': '{n} restante(s)',
+    'hud.markerDropped': 'Lançado!',
+    'hud.markerFalling': 'Caindo {m}m',
+    'hud.markerMeasuring': 'Medindo...',
+    'hud.markerResult': '{m} m',
+    'hud.clockLabel': 'Tempo restante',
+    'hud.toggleOpen': 'Toque para detalhes ▾',
+    'hud.toggleClose': 'Fechar ▴',
+
+    'areasel.title': 'Selecionar Área de Voo',
+    'areasel.mapnote': 'Toque: escolher o centro da área (caixa laranja ≈ área de 20km, centro = alvo) / Pinça: zoom / Arraste: mover',
+    'areasel.btnDefault': 'Selecione uma área no mapa',
+    'areasel.btnSelected': 'Voar aqui ({name})',
+
+    'briefing.title': 'Briefing da Tarefa',
+    'task.disciplineLabel': 'Prova',
+    'task.disciplineValue': 'JDG (Meta Declarada pelo Juiz)',
+    'task.targetLabel': 'Alvo',
+    'task.targetValue': 'X laranja no mapa',
+    'task.launchLabel': 'Decolagem',
+    'task.launchValue': 'Decolagem individual (toque no mapa para escolher)',
+    'task.timeLimitLabel': 'Tempo Limite',
+    'task.timeLimitValue': '30:00 (tempo do jogo)',
+    'task.markerLabel': 'Marcador',
+    'task.markerValue': '1 (botão de lançar)',
+    'task.scoreLabel': 'Pontuação',
+    'task.scoreValue': 'Distância do pouso do marcador até o centro do alvo',
+    'wind.sub': 'Dados de Sondagem (Pibal) (editável)',
+    'wind.addBtn': '+ Linha',
+    'wind.copyBtn': 'Copiar URL das Condições',
+    'wind.thAlt': 'Alt. pés',
+    'wind.thDir': 'Dir. °',
+    'wind.thSpeed': 'Vel. kt',
+    'wind.presetCustom': 'Personalizado',
+    'wind.delRowTitle': 'Excluir linha',
+    'briefing.hintHtml':
+      'A altitude é em relação ao solo (AGL), a direção é DE ONDE vem o vento (magnética). A tabela é editável — escolha um preset ou adicione/remova linhas.<br>' +
+      'Decole a favor do vento em relação ao alvo e mude de altitude para pegar diferentes camadas de vento em direção a ele.<br>' +
+      '"Copiar URL das Condições" compartilha um link com esta mesma configuração de vento.',
+    'launch.btnDefault': 'Selecione um ponto de decolagem no mapa',
+    'launch.btnSelected': 'Decolar! ({km} km até o alvo)',
+    'launch.mapnote': 'Tiles do GSI (mapa padrão) / Norte para cima / Toque: escolher ponto de decolagem / Pinça: zoom / Arraste: mover',
+
+    'result.title': 'Resultado JDG',
+    'result.retryBtn': 'Voar de Novo',
+    'result.replayBtn': '🎯 Repetir Lançamento',
+    'result.bestNew': 'Novo recorde pessoal!',
+    'result.bestExisting': 'Recorde pessoal: {m} m',
+    'result.timeExpired': 'Tempo esgotado: medido na posição atual',
+    'result.launchDist': 'Decolagem até o alvo: {m} m',
+    'result.gwOn': 'Vento de solo variável: Ativado',
+    'result.gwOff': 'Vento de solo variável: Desativado',
+    'result.hideBtn': 'Ocultar ▾',
+    'result.hideTitle': 'Ocultar o resultado para olhar ao redor',
+    'result.reopenBtn': 'Mostrar Resultado ▴',
+    'copy.success': 'Copiado!',
+    'copy.fail': 'Falha ao copiar',
+
+    'gw.sub': 'Vento de Solo Variável (beta)',
+    'gw.enableLabel': 'Ativar',
+    'gw.distLabel': 'Distância até o centro de alta pressão',
+    'gw.distUnit': 'km',
+    'gw.hintHtml':
+      'O vento perto do solo pode não corresponder exatamente à tabela. O valor real é definido uma vez na decolagem ' +
+      'e escondido do piloto. Durante o voo, use o botão "Equipe de Solo" para pedir uma atualização por rádio ' +
+      '(a velocidade é apenas uma estimativa aproximada).',
+    'gw.groundCrewBtn': 'Equipe de Solo',
+    'gw.reportPrefix': '📻 Da Equipe de Solo',
+    'gw.tierWeak': 'Vento fraco',
+    'gw.tierNormal': 'Vento moderado',
+    'gw.tierStrong': 'Vento forte',
+
+    'mp.title': '🎈 Voar Junto (beta)',
+    'mp.namePlaceholder': 'Nome do piloto',
+    'mp.createBtn': 'Criar Sala',
+    'mp.joinHint': 'Recebeu um código de um amigo? Entre aqui ↓',
+    'mp.codePlaceholder': 'Código',
+    'mp.joinBtn': 'Entrar',
+    'mp.roomLabel': 'Sala: ',
+    'mp.self': '(você)',
+    'mp.copyBtn': 'Copiar URL de Convite',
+    'mp.copyOtherBtn': 'Copiar URL para um jogador de PC',
+    'mp.waitingReady': 'Esperando todos ficarem prontos',
+    'mp.connecting': 'Conectando…',
+    'mp.connectFailed': '⚠ Não foi possível conectar ({err})',
+    'mp.inviteSent': 'Envie a URL de convite para seus amigos',
+    'mp.enterName': 'Digite o nome do piloto',
+    'mp.enterCode': 'Digite o código da sala',
+    'mp.readyBtn': 'Marcar como pronto ({km} km até o alvo)',
+    'mp.readyDone': '✅ Pronto (toque para cancelar)',
+    'mp.soloLink': 'Voar sozinho',
+    'mp.waitingSetup': 'Esperando as condições do anfitrião…',
+    'mp.reconnectingAfterClose': '⚠ Conexão perdida. Reconectando…',
+    'mp.reconnectingRematch': 'Reconectando…',
+    'mp.reconnected': 'Reconectado',
+    'mp.reconnectFailedSolo': '⚠ Não foi possível reconectar (continuando sozinho. Trocar de app tentará de novo)',
+    'mp.reconnectFailedReload': '⚠ Não foi possível reconectar. Recarregue a página',
+    'mp.startBtn': '🎈 Decolar Juntos!',
+    'mp.waitingPlayers': 'Esperando jogadores (2+ para começar)',
+    'mp.boardHeader': 'Sala {code} / Velocidade ×{scale} (você quer ×{desired})',
+    'mp.disconnected': '💤 Desconectado',
+    'mp.landed': '📍 Medido',
+    'mp.dropped': '🎯 Lançado',
+    'mp.resultsLeft': '(saiu)',
+    'mp.waitingRematch': 'Esperando a revanche do anfitrião…',
+    'mp.reloadToRetry': 'Recarregue a página para voar de novo',
+    'mp.waitingAllMeasure': '🎈 Esperando todos terminarem…',
+    'mp.markerMeasuredBeforeReload': 'Medido (confirmado antes de recarregar)',
+    'mp.markerDroppedAlready': 'Já lançado',
+
+    'mpJoin.title': 'Entrar na Sala',
+    'mpJoin.descHtml': 'Entrando na sala <b id="mp-join-code"></b>. Escolha seu nome e a cor do balão.',
+    'mpJoin.goBtn': 'Entrar',
+
+    'mpCountdown.label': 'Decolando em',
+
+    'mpResults.title': '🏁 Resultados (todos confirmados)',
+    'mpResults.thRank': '#',
+    'mpResults.thPilot': 'Piloto',
+    'mpResults.thDist': 'Distância',
+    'mpResults.rematchBtn': 'Revanche',
+
+    'support.title': '🎈 Torça pela Seleção Japonesa!',
+    'support.text1': 'Em setembro de 2026, 7 pilotos representarão o Japão no Campeonato Mundial de Balonismo em Krosno🇵🇱, Polônia.',
+    'support.tshirtBtn': 'Encomendar Camiseta de Apoio',
+    'support.text2':
+      'Escolha entre 3 designs × 2 cores cada, em algodão ou tecido dry-fit.<br>' +
+      'Doações também são bem-vindas. Doadores recebem um <b>aplicativo especial</b> em que você pode voar ' +
+      'sobre o terreno real de Krosno, a cidade-sede do Campeonato Mundial.',
+    'support.instaBtn': 'Informações de doação no Instagram',
+
+    'pibal.panelTitle': 'Dados de Sondagem (Pibal)',
+    'pibal.note': 'Alt: solo (AGL) / Dir: <span id="pibal-mode-label">FROM</span> (magnética)',
+    'pibal.closeBtn': 'Fechar ▲',
+    'pibal.launchTimeNote': ' (na decolagem)',
+
+    'btn.burnerHtml': '🔥<br>Queimador',
+    'btn.rip': 'Respiro',
+    'btn.markerHtml': 'Lançar<br>Marcador',
+    'btn.view': 'Visão',
+    'btn.speed': 'Vel. ×',
+    'btn.pibal': 'Dados de Vento',
+    'btn.soundOn': 'Som LIGADO',
+    'btn.soundOnStalled': 'Som LIGADO…',
+    'btn.soundOff': 'Som DESLIGADO',
+
+    'help.bodyHtml':
+      '<b>Espaço</b> Queimador (segurar) <b>R</b> Respiro (segurar) <b>M</b> Lançar marcador<br>' +
+      '<b>V</b> Trocar visão (cesto/externa) <b>1-4</b> Velocidade ×1/×2/×4/×8<br>' +
+      '<b>P</b> Mostrar/ocultar tabela de vento Arrastar o mouse: olhar ao redor / Roda: zoom',
+
+    'credit.aria': 'Mostrar créditos',
+    'credit.html': 'Fonte: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">Tiles do GSI (Instituto Geoespacial do Japão)</a> (tiles de elevação, imagens aéreas recentes)',
+
+    'loading.generic': 'Carregando terreno…',
+    'loading.area': 'Carregando terreno: {name}…',
+
+    'area.saga': 'Saga - Rio Kasegawa',
+    'area.watarase': 'Bacia de Retenção Watarase',
+    'area.saku': 'Saku - Rio Chikuma',
+    'area.ichinoseki': 'Ichinoseki - Hiraizumi',
+    'area.kamishihoro': 'Kamishihoro (Hokkaido)',
+
+    'windPreset.sagaMorning': 'Rotação Matinal de Saga (padrão)',
+    'windPreset.backing': 'Rotação Anti-horária (NE→NO)',
+    'windPreset.steady': 'Estável (vento sul)',
+    'windPreset.strongVeer': 'Vento Forte, Rotação Acentuada',
+  },
+  pl: {
+    'meta.title': 'Lot Balonem (Mobile)',
+
+    'hud.altUnit': 'ft nad ziemią',
+    'hud.altMsl': 'Wysokość (n.p.m.)',
+    'hud.agl': 'Wys. nad ziemią',
+    'hud.vario': 'Wariometr',
+    'hud.windLabel': 'Wiatr (bieżąca wys.)',
+    'hud.windLabelTo': 'Wiatr (bieżąca wys., DOKĄD)',
+    'hud.fuel': 'Paliwo',
+    'hud.envelopeTemp': 'Temp. powłoki',
+    'hud.timeScale': 'Przyspieszenie ×',
+    'hud.status': 'Stan',
+    'hud.statusGrounded': 'Na ziemi',
+    'hud.statusFlying': 'W locie',
+    'hud.target': 'Cel',
+    'hud.marker': 'Znacznik',
+    'hud.markerRemaining': 'Zostało {n}',
+    'hud.markerDropped': 'Zrzucono!',
+    'hud.markerFalling': 'Spada {m}m',
+    'hud.markerMeasuring': 'Pomiar...',
+    'hud.markerResult': '{m} m',
+    'hud.clockLabel': 'Pozostały czas',
+    'hud.toggleOpen': 'Dotknij, by rozwinąć ▾',
+    'hud.toggleClose': 'Zamknij ▴',
+
+    'areasel.title': 'Wybierz Obszar Lotu',
+    'areasel.mapnote': 'Dotknij: wybierz środek obszaru (pomarańczowa ramka ≈ obszar 20km, środek = cel) / Uszczypnięcie: zoom / Przeciągnij: przesuń',
+    'areasel.btnDefault': 'Wybierz obszar na mapie',
+    'areasel.btnSelected': 'Leć tutaj ({name})',
+
+    'briefing.title': 'Odprawa Zadania',
+    'task.disciplineLabel': 'Konkurencja',
+    'task.disciplineValue': 'JDG (Cel Wyznaczony przez Sędziego)',
+    'task.targetLabel': 'Cel',
+    'task.targetValue': 'Pomarańczowy X na mapie',
+    'task.launchLabel': 'Start',
+    'task.launchValue': 'Start indywidualny (dotknij mapy, by wybrać)',
+    'task.timeLimitLabel': 'Limit Czasu',
+    'task.timeLimitValue': '30:00 (czas gry)',
+    'task.markerLabel': 'Znacznik',
+    'task.markerValue': '1 (przycisk zrzutu)',
+    'task.scoreLabel': 'Wynik',
+    'task.scoreValue': 'Odległość miejsca lądowania znacznika od środka celu',
+    'wind.sub': 'Dane Sondażu Pilotowego (edytowalne)',
+    'wind.addBtn': '+ Wiersz',
+    'wind.copyBtn': 'Kopiuj URL Warunków',
+    'wind.thAlt': 'Wys. ft',
+    'wind.thDir': 'Kier. °',
+    'wind.thSpeed': 'Pręd. kt',
+    'wind.presetCustom': 'Własne',
+    'wind.delRowTitle': 'Usuń wiersz',
+    'briefing.hintHtml':
+      'Wysokość podana jest nad ziemią (AGL), kierunek to kierunek SKĄD wieje wiatr (magnetyczny). Tabelę można edytować — wybierz gotowy zestaw lub dodaj/usuń wiersze.<br>' +
+      'Startuj pod wiatr względem celu i zmieniaj wysokość, by korzystać z różnych warstw wiatru w jego kierunku.<br>' +
+      '"Kopiuj URL Warunków" pozwala udostępnić link z dokładnie takimi samymi warunkami wiatru.',
+    'launch.btnDefault': 'Wybierz miejsce startu na mapie',
+    'launch.btnSelected': 'Start! ({km} km do celu)',
+    'launch.mapnote': 'Kafelki GSI (mapa standardowa) / Północ u góry / Dotknij: wybierz miejsce startu / Uszczypnięcie: zoom / Przeciągnij: przesuń',
+
+    'result.title': 'Wynik JDG',
+    'result.retryBtn': 'Leć Ponownie',
+    'result.replayBtn': '🎯 Powtórz Zrzut',
+    'result.bestNew': 'Nowy rekord życiowy!',
+    'result.bestExisting': 'Rekord życiowy: {m} m',
+    'result.timeExpired': 'Czas minął: zmierzono w bieżącej pozycji',
+    'result.launchDist': 'Start do celu: {m} m',
+    'result.gwOn': 'Zmienność wiatru przy ziemi: Włączona',
+    'result.gwOff': 'Zmienność wiatru przy ziemi: Wyłączona',
+    'result.hideBtn': 'Ukryj ▾',
+    'result.hideTitle': 'Ukryj wynik, by rozejrzeć się dookoła',
+    'result.reopenBtn': 'Pokaż Wynik ▴',
+    'copy.success': 'Skopiowano!',
+    'copy.fail': 'Kopiowanie nieudane',
+
+    'gw.sub': 'Zmienność Wiatru przy Ziemi (beta)',
+    'gw.enableLabel': 'Włącz',
+    'gw.distLabel': 'Odległość do centrum wyżu',
+    'gw.distUnit': 'km',
+    'gw.hintHtml':
+      'Wiatr przy ziemi może nie odpowiadać dokładnie wartościom z tabeli. Rzeczywista wartość jest ustalana raz, przy starcie, ' +
+      'i ukryta przed pilotem. Podczas lotu użyj przycisku "Ekipa Naziemna", by uzyskać aktualizację przez radio ' +
+      '(prędkość to tylko przybliżony szacunek).',
+    'gw.groundCrewBtn': 'Ekipa Naziemna',
+    'gw.reportPrefix': '📻 Od Ekipy Naziemnej',
+    'gw.tierWeak': 'Słaby wiatr',
+    'gw.tierNormal': 'Umiarkowany wiatr',
+    'gw.tierStrong': 'Silny wiatr',
+
+    'mp.title': '🎈 Lećmy Razem (beta)',
+    'mp.namePlaceholder': 'Imię pilota',
+    'mp.createBtn': 'Utwórz Pokój',
+    'mp.joinHint': 'Masz kod od znajomego? Dołącz tutaj ↓',
+    'mp.codePlaceholder': 'Kod',
+    'mp.joinBtn': 'Dołącz',
+    'mp.roomLabel': 'Pokój: ',
+    'mp.self': '(ty)',
+    'mp.copyBtn': 'Kopiuj URL Zaproszenia',
+    'mp.copyOtherBtn': 'Kopiuj URL dla gracza na PC',
+    'mp.waitingReady': 'Czekam, aż wszyscy będą gotowi',
+    'mp.connecting': 'Łączenie…',
+    'mp.connectFailed': '⚠ Nie udało się połączyć ({err})',
+    'mp.inviteSent': 'Wyślij URL zaproszenia znajomym',
+    'mp.enterName': 'Wpisz imię pilota',
+    'mp.enterCode': 'Wpisz kod pokoju',
+    'mp.readyBtn': 'Oznacz jako gotowy ({km} km do celu)',
+    'mp.readyDone': '✅ Gotowy (dotknij, by anulować)',
+    'mp.soloLink': 'Leć solo',
+    'mp.waitingSetup': 'Czekam na warunki od gospodarza…',
+    'mp.reconnectingAfterClose': '⚠ Utracono połączenie. Łączę ponownie…',
+    'mp.reconnectingRematch': 'Łączę ponownie…',
+    'mp.reconnected': 'Połączono ponownie',
+    'mp.reconnectFailedSolo': '⚠ Nie udało się połączyć ponownie (kontynuacja solo. Zmiana aplikacji spróbuje ponownie)',
+    'mp.reconnectFailedReload': '⚠ Nie udało się połączyć ponownie. Odśwież stronę',
+    'mp.startBtn': '🎈 Start Wspólny!',
+    'mp.waitingPlayers': 'Czekam na graczy (min. 2, by zacząć)',
+    'mp.boardHeader': 'Pokój {code} / Przyspieszenie ×{scale} (chcesz ×{desired})',
+    'mp.disconnected': '💤 Rozłączony',
+    'mp.landed': '📍 Zmierzono',
+    'mp.dropped': '🎯 Zrzucono',
+    'mp.resultsLeft': '(opuścił)',
+    'mp.waitingRematch': 'Czekam na rewanż od gospodarza…',
+    'mp.reloadToRetry': 'Odśwież stronę, by lecieć ponownie',
+    'mp.waitingAllMeasure': '🎈 Czekam, aż wszyscy skończą…',
+    'mp.markerMeasuredBeforeReload': 'Zmierzono (zatwierdzone przed odświeżeniem)',
+    'mp.markerDroppedAlready': 'Już zrzucono',
+
+    'mpJoin.title': 'Dołącz do Pokoju',
+    'mpJoin.descHtml': 'Dołączanie do pokoju <b id="mp-join-code"></b>. Wybierz imię i kolor balonu.',
+    'mpJoin.goBtn': 'Dołącz',
+
+    'mpCountdown.label': 'Start za',
+
+    'mpResults.title': '🏁 Wyniki (wszyscy potwierdzeni)',
+    'mpResults.thRank': '#',
+    'mpResults.thPilot': 'Pilot',
+    'mpResults.thDist': 'Odległość',
+    'mpResults.rematchBtn': 'Rewanż',
+
+    'support.title': '🎈 Kibicuj Reprezentacji Japonii!',
+    'support.text1': 'We wrześniu 2026 roku 7 pilotów będzie reprezentować Japonię na Mistrzostwach Świata w Balonach w Krośnie🇵🇱, w Polsce.',
+    'support.tshirtBtn': 'Zamów Koszulkę Kibica',
+    'support.text2':
+      'Wybierz spośród 3 wzorów × 2 kolory każdy, z bawełny lub materiału dry-fit.<br>' +
+      'Darowizny są również mile widziane. Darczyńcy otrzymują <b>specjalną wersję aplikacji</b>, w której można latać ' +
+      'nad prawdziwym terenem Krosna, miasta-gospodarza Mistrzostw Świata.',
+    'support.instaBtn': 'Informacje o darowiznach na Instagramie',
+
+    'pibal.panelTitle': 'Dane Sondażu Pilotowego',
+    'pibal.note': 'Wys.: nad ziemią (AGL) / Kier.: <span id="pibal-mode-label">FROM</span> (magnetyczny)',
+    'pibal.closeBtn': 'Zamknij ▲',
+    'pibal.launchTimeNote': ' (przy starcie)',
+
+    'btn.burnerHtml': '🔥<br>Palnik',
+    'btn.rip': 'Odpowietrznik',
+    'btn.markerHtml': 'Zrzuć<br>Znacznik',
+    'btn.view': 'Widok',
+    'btn.speed': 'Przysp. ×',
+    'btn.pibal': 'Dane Wiatru',
+    'btn.soundOn': 'Dźwięk WŁ',
+    'btn.soundOnStalled': 'Dźwięk WŁ…',
+    'btn.soundOff': 'Dźwięk WYŁ',
+
+    'help.bodyHtml':
+      '<b>Spacja</b> Palnik (przytrzymaj) <b>R</b> Odpowietrznik (przytrzymaj) <b>M</b> Zrzuć znacznik<br>' +
+      '<b>V</b> Zmień widok (gondola/zewnętrzny) <b>1-4</b> Przyspieszenie ×1/×2/×4/×8<br>' +
+      '<b>P</b> Pokaż/ukryj tabelę wiatru Przeciąganie myszą: rozglądanie się / Kółko: zoom',
+
+    'credit.aria': 'Pokaż źródła',
+    'credit.html': 'Źródło: <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">Kafelki GSI (Japoński Urząd Geoprzestrzenny)</a> (kafelki wysokościowe, najnowsze zdjęcia lotnicze)',
+
+    'loading.generic': 'Wczytywanie terenu…',
+    'loading.area': 'Wczytywanie terenu: {name}…',
+
+    'area.saga': 'Saga - rzeka Kasegawa',
+    'area.watarase': 'Zbiornik retencyjny Watarase',
+    'area.saku': 'Saku - rzeka Chikuma',
+    'area.ichinoseki': 'Ichinoseki - Hiraizumi',
+    'area.kamishihoro': 'Kamishihoro (Hokkaido)',
+
+    'windPreset.sagaMorning': 'Poranna rotacja w Saga (domyślne)',
+    'windPreset.backing': 'Rotacja wsteczna (NE→NW)',
+    'windPreset.steady': 'Stabilny (wiatr południowy)',
+    'windPreset.strongVeer': 'Silny wiatr, duża rotacja',
+  },
 };
+
+const SUPPORTED_LANGS = ['ja', 'en', 'pt', 'pl'];
 
 function detectLang() {
   const urlLang = new URLSearchParams(location.search).get('lang');
-  if (urlLang === 'en' || urlLang === 'ja') return urlLang;
+  if (SUPPORTED_LANGS.includes(urlLang)) return urlLang;
   const saved = localStorage.getItem(LANG_KEY);
-  if (saved === 'en' || saved === 'ja') return saved;
-  return navigator.language && navigator.language.startsWith('ja') ? 'ja' : 'en';
+  if (SUPPORTED_LANGS.includes(saved)) return saved;
+  const nav = (navigator.language || '').toLowerCase();
+  const match = SUPPORTED_LANGS.find((l) => nav.startsWith(l));
+  return match ?? 'en';
 }
 
 export const LANG = detectLang();
@@ -410,7 +780,7 @@ export function setLang(lang) {
 
 // 起動時に一度だけ呼び、data-i18n系属性を持つ静的要素をまとめて差し替える
 export function applyStaticI18n() {
-  document.documentElement.lang = LANG === 'ja' ? 'ja' : 'en';
+  document.documentElement.lang = LANG;
   document.title = t('meta.title');
   document.querySelectorAll('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n);
