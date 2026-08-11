@@ -251,20 +251,33 @@ function buildKernelPattern(kernel) {
 }
 
 // buildGoreTexture()は1枚のテクスチャを描くのに colorSlotAt() を千回以上呼ぶので、
-// 同じカーネルに対して柄定義を作り直さないよう直前の1件だけ覚えておく
-let kernelCacheKey = null;
+// 同じカーネルに対して柄定義を作り直さないよう直前の1件だけ覚えておく。
+// 判定は7つのフィールドの直接比較で行う(文字列化すると1呼び出しごとに
+// 確保が走り、カスタム柄だけプリセットの10倍近く遅くなってしまう)
+let kernelCacheSrc = null;
 let kernelCacheValue = null;
+
+function sameKernelAsCache(k) {
+  const c = kernelCacheSrc;
+  return !!c && c.slices === k.slices && c.kv === k.kv && c.kg === k.kg
+    && c.waveAmp === k.waveAmp && c.wavePeriods === k.wavePeriods
+    && c.checker === k.checker && c.mapping === k.mapping;
+}
 
 // 見た目からパターン定義を引く。プリセット階(PATTERNS)とカーネル階のどちらであっても、
 // {colorIndex, fineSlices, alignSeams, skirtUsesTopColor} という同じ形が返る
 export function resolvePattern(appearance) {
   const app = appearance || DEFAULT_APPEARANCE;
   if (app.pattern !== CUSTOM_PATTERN) return PATTERNS[app.pattern] || PATTERNS.alt;
-  const key = JSON.stringify(clampKernel(app.kernel));
-  if (key !== kernelCacheKey) {
-    kernelCacheKey = key;
-    kernelCacheValue = buildKernelPattern(app.kernel);
-  }
+  const k = app.kernel || DEFAULT_KERNEL;
+  if (sameKernelAsCache(k)) return kernelCacheValue;
+  // 取りこぼしのときだけ確保する。生の値で覚えておけば、呼び出し側が
+  // カーネルを書き換えた場合もきちんと作り直しになる
+  kernelCacheSrc = {
+    slices: k.slices, kv: k.kv, kg: k.kg, waveAmp: k.waveAmp,
+    wavePeriods: k.wavePeriods, checker: k.checker, mapping: k.mapping,
+  };
+  kernelCacheValue = buildKernelPattern(k);
   return kernelCacheValue;
 }
 
