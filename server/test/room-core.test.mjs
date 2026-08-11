@@ -40,6 +40,28 @@ test('appearance(気球の柄+配色コード)はjoin時に検証・保存され
   assert.equal(roster.find((p) => p.id === c.id).appearance, null, '省略時もnull');
 });
 
+test('appearance: カスタム柄の可変長コード(Base32)も中継できる', () => {
+  const room = new RoomCore();
+  // カーネル+16色のコードが最長20文字になる。24文字までは受け付け、それを超えたら捨てる
+  const longest = 'GZY5YKW0J6HB7H6NWVVR';
+  const a = room.join('Alice', 2, true, 0, longest);
+  const b = room.join('Bob', 5, false, 0, 'G'.repeat(25));
+  const c = room.join('Carol', 5, false, 0, 'g1gw0j6hb7');
+  const roster = room.roster();
+  assert.equal(roster.find((p) => p.id === a.id).appearance, longest, '20文字のコードはそのまま保存される');
+  assert.equal(roster.find((p) => p.id === b.id).appearance, null, '24文字を超えたらnull');
+  assert.equal(roster.find((p) => p.id === c.id).appearance, 'G1GW0J6HB7', '小文字は大文字へ正規化される');
+});
+
+test('color: パレット16色ぶんの番号を受け付ける', () => {
+  const room = new RoomCore();
+  const a = room.join('Alice', 15, true, 0);
+  const b = room.join('Bob', 16, false, 0);
+  const roster = room.roster();
+  assert.equal(roster.find((p) => p.id === a.id).color, 15);
+  assert.equal(roster.find((p) => p.id === b.id).color, 0, '範囲外は0へフォールバック');
+});
+
 test('満員・重複入室制御', () => {
   const room = new RoomCore({ maxPlayers: 2 });
   room.join('A', 0, true, 0);

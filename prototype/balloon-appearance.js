@@ -115,45 +115,260 @@ export const PATTERNS = {
   },
 };
 
-export const MAX_COLORS = 4;
+// ===========================================================================
+// カーネル階(パラメータ式の柄)
+// ===========================================================================
+// 上の PATTERNS は「実機の写真や展開図に合わせて手で調整した柄」の置き場所で、
+// 共有コードには番号しか載らない(柄の中身は全プレイヤーのクライアントが持っているため)。
+// それに対してこちらは、プレイヤーが自分でパラメータを決めて作る柄。他人のクライアントは
+// その柄を知らないので、共有コードにパラメータを全部載せる必要がある。
+//
+// 数式は上の4パターンから共通形を取り出したもの:
+//
+//   band = floor(Kv・v + Kg・(g/GORES)) + 波(slice)
+//   色   = 割当方式(band, 市松, N)
+//
+// v=0が球皮の頂点・v=1がスカート側なので、bandは上から下へ増える向きになる。
+// 交互(Kv=0, Kg=分割数)・水平(Kv=段数, Kg=0)はこの式で完全に再現でき、
+// スパイラルもほぼ同型(Kv=9, Kg=N)になる。サファイアのように上下で位相をずらす等の
+// 例外を含む柄は数式に載せず、プリセット階に置いたままにする。
+export const CUSTOM_PATTERN = 'custom';
+
+// 横の分割数(描画のマス目と市松の細かさ)。3bitに収まる8通り
+export const KERNEL_SLICES = [8, 12, 16, 20, 24, 32, 40, 48];
+// 境界線の山谷の周期(一周あたりの山の数)。0=波なし
+export const KERNEL_WAVE_PERIODS = [0, 2, 3, 4];
+// bandを色番号へ割り当てる方式
+//   cycle       : 0,1,2,...,N-1,0,1,... と巡回する(交互・水平・スパイラルと同じ)
+//   mirror      : 0,1,...,N-1,N-2,...,1,0 と折り返す(端で色が飛ばない)
+//   zone        : 高さ全体を N 等分し、下へ行くほど後ろの色になる(グラデーション)
+//   zoneChecker : ゾーンの境目で2色を市松に混ぜる(サファイアと同じ考え方)
+export const KERNEL_MAPPINGS = ['cycle', 'mirror', 'zone', 'zoneChecker'];
+// 一周で色が何段進むか(=柄の傾き)。符号は巻き方向。
+// 'N'/'-N' は「一周でちょうど1巡」という特殊値で、色数を変えても巻きが1周のまま保たれる
+export const KERNEL_KG_VALUES = [
+  0, 'N', '-N',
+  1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6,
+  8, -8, 10, -10, 12, -12, 16, -16, 20, -20, 24, -24, 32, -32,
+];
+// 縦ステップ Kv の上限(5bit)
+export const KERNEL_KV_MAX = 31;
+// カスタム柄の初期値。スパイラル相当から始めれば、いじる前でも見慣れた柄が出る
+export const DEFAULT_KERNEL = {
+  slices: 16, kv: 9, kg: 'N', waveAmp: 0, wavePeriods: 0, checker: false, mapping: 'cycle',
+};
+
+export const MAX_COLORS = 16;
+// 現行(v0)の16進6桁コードに収まる色数。これを超えると自動的に新形式へ切り替わる
+const V0_MAX_COLORS = 4;
 // ロードテープ(ゴアとゴアをつなぐ縦の継ぎ目テープ)の色。既定は茶色、transparentで非表示
 export const TAPE_COLORS = ['brown', 'white', 'transparent'];
 // 既定値: 何も選ばなければ現行実装そのまま(赤の濃淡2トーン・茶色のロードテープ)になる
 export const DEFAULT_APPEARANCE = { pattern: 'alt', colors: [0], soloFill: false, tape: 'brown' };
+
+function mod(a, n) {
+  return ((a % n) + n) % n;
+}
+
+function clampInt(v, lo, hi) {
+  return Math.min(hi, Math.max(lo, Math.round(v)));
+}
+
+// 0→1→0の三角波。sapphireWave()を分割数・周期で一般化したもの
+function triWave(slice, slices, periods) {
+  const cyc = (slice / slices) * periods;
+  const frac = cyc - Math.floor(cyc);
+  return 1 - Math.abs(2 * frac - 1);
+}
+
+// 'N'/'-N'(一周でちょうど1巡)を実際の色数へ解決する
+function resolveKg(kg, n) {
+  if (kg === 'N') return n;
+  if (kg === '-N') return -n;
+  return kg;
+}
+
+function clampKernel(k) {
+  const src = k || {};
+  return {
+    slices: KERNEL_SLICES.includes(src.slices) ? src.slices : DEFAULT_KERNEL.slices,
+    kv: Number.isFinite(src.kv) ? clampInt(src.kv, 0, KERNEL_KV_MAX) : DEFAULT_KERNEL.kv,
+    kg: KERNEL_KG_VALUES.includes(src.kg) ? src.kg : DEFAULT_KERNEL.kg,
+    waveAmp: Number.isFinite(src.waveAmp) ? clampInt(src.waveAmp, 0, 3) : DEFAULT_KERNEL.waveAmp,
+    wavePeriods: KERNEL_WAVE_PERIODS.includes(src.wavePeriods)
+      ? src.wavePeriods : DEFAULT_KERNEL.wavePeriods,
+    checker: !!src.checker,
+    mapping: KERNEL_MAPPINGS.includes(src.mapping) ? src.mapping : DEFAULT_KERNEL.mapping,
+  };
+}
+
+// カーネル階の色番号。PATTERNSのcolorIndex(g, v, N)と同じ約束で値を返す
+function kernelColorIndex(k, g, v, n) {
+  if (n <= 1) return 0;
+  const kg = resolveKg(k.kg, n);
+  const rows = k.kv;
+  const slice = Math.floor((mod(g, GORES) / GORES) * k.slices);
+  const wave = k.waveAmp > 0 && k.wavePeriods > 0
+    ? Math.round(k.waveAmp * (triWave(slice, k.slices, k.wavePeriods) * 2 - 1))
+    : 0;
+  const band = Math.floor(v * rows + (g / GORES) * kg) + wave;
+  // 市松の段は「柄のマス目」なので、bandではなく縦分割そのものから決める
+  const row = rows > 0 ? Math.min(rows - 1, Math.floor(v * rows)) : 0;
+  const checker = k.checker ? mod(slice + row, 2) : 0;
+
+  // ゾーン系は巡回させず高さ方向へ引き伸ばす。縦分割が無い(rows=0)ときは
+  // 割り算が成立しないので巡回にフォールバックする
+  if (rows > 0 && (k.mapping === 'zone' || k.mapping === 'zoneChecker')) {
+    if (k.mapping === 'zone') return clampInt(Math.floor((band * n) / rows), 0, n - 1);
+    const zone = clampInt(Math.floor((band * (n - 1)) / rows), 0, n - 2);
+    return zone + checker;
+  }
+  if (k.mapping === 'mirror') {
+    // 0..N-1..0 の折り返し。周期は 2N-2(N=2なら巡回と同じ動きになる)
+    const period = 2 * n - 2;
+    if (period > 0) {
+      const m = mod(band + checker, period);
+      return m < n ? m : period - m;
+    }
+  }
+  return mod(band + checker, n);
+}
+
+// カーネルのパラメータから、PATTERNSの要素と同じ形の柄定義を作る。
+// main.js側(buildGoreTexture/skirtColorFor)はプリセットかカスタムかを区別せずに
+// 扱えるので、描画側の分岐が増えない
+function buildKernelPattern(kernel) {
+  const k = clampKernel(kernel);
+  return {
+    id: CUSTOM_PATTERN,
+    // 柄のマス目に合わせて描画とロードテープの本数を合わせる(16分割のときは既定のまま)
+    fineSlices: k.slices,
+    alignSeams: k.slices !== GORES,
+    // グラデーション系は下端が最後の色になるので、開口部のスカートもそこへ合わせる
+    skirtUsesTopColor: k.mapping === 'zone' || k.mapping === 'zoneChecker',
+    colorIndex: (g, v, n) => kernelColorIndex(k, g, v, n),
+  };
+}
+
+// buildGoreTexture()は1枚のテクスチャを描くのに colorSlotAt() を千回以上呼ぶので、
+// 同じカーネルに対して柄定義を作り直さないよう直前の1件だけ覚えておく
+let kernelCacheKey = null;
+let kernelCacheValue = null;
+
+// 見た目からパターン定義を引く。プリセット階(PATTERNS)とカーネル階のどちらであっても、
+// {colorIndex, fineSlices, alignSeams, skirtUsesTopColor} という同じ形が返る
+export function resolvePattern(appearance) {
+  const app = appearance || DEFAULT_APPEARANCE;
+  if (app.pattern !== CUSTOM_PATTERN) return PATTERNS[app.pattern] || PATTERNS.alt;
+  const key = JSON.stringify(clampKernel(app.kernel));
+  if (key !== kernelCacheKey) {
+    kernelCacheKey = key;
+    kernelCacheValue = buildKernelPattern(app.kernel);
+  }
+  return kernelCacheValue;
+}
+
+// ===========================================================================
+// 共有コードの符号化
+// ===========================================================================
+// 形式は2つあり、decodeAppearance()が先頭の文字で見分ける:
+//
+//   v0: 16進6桁。現行の形式。4パターン・4色以内・パレット16色までを表せる
+//   v1: 先頭'G' + Crockford Base32。柄のプリセット番号(32種)またはカーネルの
+//       パラメータと、最大16色を可変長で表せる
+//
+// encodeAppearance()は「v0で表せる見た目ならv0のまま出す」ため、既存の共有URLや
+// localStorageの値と1文字も変わらない。桁が増えるのは新しい柄や5色目を使ったときだけ。
+//
+// Base32はCrockford版(I/L/O/Uを除く32文字)。16進の1文字4bitに対し1文字5bitなので
+// 同じ情報量なら約25%短く、かつ大文字だけなので口頭でも伝えられる
+const B32_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const V1_PREFIX = 'G'; // 16進には無くBase32には有る文字なので、旧コードと衝突しない
+// v1で一番長くなるのは「カーネル+16色」の20文字。将来の拡張ぶんを見て24文字を上限とし、
+// これを超える入力は壊れたコードとして扱う(サーバー側の受け入れ上限と同じ値)
+export const MAX_CODE_LENGTH = 24;
 
 function clampColorIndex(i) {
   return Number.isInteger(i) && i >= 0 && i < BALLOON_COLORS.length ? i : 0;
 }
 
 function clampAppearance(app) {
-  const pattern = PATTERN_IDS.includes(app && app.pattern) ? app.pattern : 'alt';
-  const rawColors = Array.isArray(app && app.colors) && app.colors.length ? app.colors : [0];
+  const src = app || {};
+  const isCustom = src.pattern === CUSTOM_PATTERN;
+  const pattern = isCustom || PATTERN_IDS.includes(src.pattern) ? src.pattern : 'alt';
+  const rawColors = Array.isArray(src.colors) && src.colors.length ? src.colors : [0];
   const colors = rawColors.slice(0, MAX_COLORS).map(clampColorIndex);
-  const tape = TAPE_COLORS.includes(app && app.tape) ? app.tape : 'brown';
-  return { pattern, colors, soloFill: !!(app && app.soloFill), tape };
+  const tape = TAPE_COLORS.includes(src.tape) ? src.tape : 'brown';
+  const out = { pattern, colors, soloFill: !!src.soloFill, tape };
+  if (isCustom) out.kernel = clampKernel(src.kernel);
+  return out;
 }
 
-// 見た目を16進数コード(6桁固定)へエンコードする。共有URLやテキストでの再入力用。
-// bit0-1: パターン, bit2-3: 色数-1, bit4: 単色時の塗り潰しフラグ,
+function defaultAppearance() {
+  return { ...DEFAULT_APPEARANCE, colors: [0] };
+}
+
+function pushBits(bits, value, n) {
+  for (let i = n - 1; i >= 0; i--) bits.push((value >> i) & 1);
+}
+
+function bitsToBase32(bits) {
+  let out = '';
+  for (let i = 0; i < bits.length; i += 5) {
+    let v = 0;
+    for (let j = 0; j < 5; j++) v = (v << 1) | (bits[i + j] || 0);
+    out += B32_ALPHABET[v];
+  }
+  return out;
+}
+
+function base32ToBits(s) {
+  const bits = [];
+  for (const ch of s) {
+    const v = B32_ALPHABET.indexOf(ch);
+    if (v < 0) return null;
+    pushBits(bits, v, 5);
+  }
+  return bits;
+}
+
+// 読み進める側。足りなくなったらnullを返し、呼び出し側が既定値へ落とす
+function makeBitReader(bits) {
+  let at = 0;
+  return (n) => {
+    if (at + n > bits.length) return null;
+    let v = 0;
+    for (let i = 0; i < n; i++) v = (v << 1) | bits[at + i];
+    at += n;
+    return v;
+  };
+}
+
+// v0(16進6桁)で表せるか。プリセットの4パターン・4色以内が条件
+function fitsV0(app) {
+  return app.pattern !== CUSTOM_PATTERN
+    && PATTERN_IDS.indexOf(app.pattern) >= 0
+    && PATTERN_IDS.indexOf(app.pattern) < 4
+    && app.colors.length <= V0_MAX_COLORS;
+}
+
+// v0: bit0-1: パターン, bit2-3: 色数-1, bit4: 単色時の塗り潰しフラグ,
 // bit5-8/9-12/13-16/17-20: 色1〜4のパレット番号(各4bit、BALLOON_COLORS.length<=16前提),
 // bit21-22: ロードテープの色(0=茶,1=白,2=透明)
-export function encodeAppearance(appearance) {
-  const app = clampAppearance(appearance);
+function encodeV0(app) {
   const patternIdx = Math.max(0, PATTERN_IDS.indexOf(app.pattern));
   const n = app.colors.length;
   let code = patternIdx | ((n - 1) << 2) | ((app.soloFill ? 1 : 0) << 4);
-  for (let i = 0; i < MAX_COLORS; i++) {
+  for (let i = 0; i < V0_MAX_COLORS; i++) {
     code |= clampColorIndex(app.colors[i] ?? app.colors[0]) << (5 + i * 4);
   }
   code |= TAPE_COLORS.indexOf(app.tape) << 21;
   return code.toString(16).toUpperCase().padStart(6, '0');
 }
 
-// 16進数コードから見た目をデコードする。不正な値は既定(赤の濃淡2トーン・茶色)にフォールバックする
-export function decodeAppearance(hex) {
-  if (typeof hex !== 'string' || !/^[0-9a-fA-F]{1,6}$/.test(hex)) return { ...DEFAULT_APPEARANCE, colors: [0] };
+function decodeV0(hex) {
   const code = parseInt(hex, 16);
-  if (!Number.isFinite(code)) return { ...DEFAULT_APPEARANCE, colors: [0] };
+  if (!Number.isFinite(code)) return defaultAppearance();
   const patternIdx = code & 0b11;
   const n = ((code >> 2) & 0b11) + 1;
   const soloFill = !!((code >> 4) & 1);
@@ -163,11 +378,124 @@ export function decodeAppearance(hex) {
   return { pattern: PATTERN_IDS[patternIdx] || 'alt', colors, soloFill, tape };
 }
 
+// v1: [1bit 階層] + (プリセット5bit | カーネル20bit) + [塗り潰し1bit] +
+//     [テープ2bit] + [色数-1 4bit] + [色 4bit × 色数]
+function encodeV1(app) {
+  const bits = [];
+  const isCustom = app.pattern === CUSTOM_PATTERN;
+  pushBits(bits, isCustom ? 1 : 0, 1);
+  if (isCustom) {
+    const k = app.kernel;
+    pushBits(bits, KERNEL_SLICES.indexOf(k.slices), 3);
+    pushBits(bits, k.kv, 5);
+    pushBits(bits, KERNEL_KG_VALUES.indexOf(k.kg), 5);
+    pushBits(bits, k.waveAmp, 2);
+    pushBits(bits, KERNEL_WAVE_PERIODS.indexOf(k.wavePeriods), 2);
+    pushBits(bits, k.checker ? 1 : 0, 1);
+    pushBits(bits, KERNEL_MAPPINGS.indexOf(k.mapping), 2);
+  } else {
+    pushBits(bits, Math.max(0, PATTERN_IDS.indexOf(app.pattern)), 5);
+  }
+  pushBits(bits, app.soloFill ? 1 : 0, 1);
+  pushBits(bits, TAPE_COLORS.indexOf(app.tape), 2);
+  pushBits(bits, app.colors.length - 1, 4);
+  for (const c of app.colors) pushBits(bits, c, 4);
+  return V1_PREFIX + bitsToBase32(bits);
+}
+
+// 復号できなければnullを返す(呼び出し側が既定値へ落とすか、入力エラーとして扱う)
+function decodeV1(code) {
+  const bits = base32ToBits(code.slice(V1_PREFIX.length));
+  if (!bits) return null;
+  let used = 0;
+  const reader = makeBitReader(bits);
+  const read = (n) => { const v = reader(n); if (v !== null) used += n; return v; };
+  const tier = read(1);
+  if (tier === null) return null;
+
+  let pattern = 'alt';
+  let kernel = null;
+  if (tier === 1) {
+    const slices = read(3);
+    const kv = read(5);
+    const kgIdx = read(5);
+    const waveAmp = read(2);
+    const wavePeriods = read(2);
+    const checker = read(1);
+    const mapping = read(2);
+    if (mapping === null) return null;
+    pattern = CUSTOM_PATTERN;
+    kernel = clampKernel({
+      slices: KERNEL_SLICES[slices],
+      kv,
+      kg: KERNEL_KG_VALUES[kgIdx],
+      waveAmp,
+      wavePeriods: KERNEL_WAVE_PERIODS[wavePeriods],
+      checker: !!checker,
+      mapping: KERNEL_MAPPINGS[mapping],
+    });
+  } else {
+    const presetIdx = read(5);
+    if (presetIdx === null) return null;
+    // 手元のクライアントが知らない新しいプリセット番号は、既定の柄として描く
+    pattern = PATTERN_IDS[presetIdx] || 'alt';
+  }
+
+  const soloFill = read(1);
+  const tapeIdx = read(2);
+  const nMinus1 = read(4);
+  if (nMinus1 === null) return null;
+  const colors = [];
+  for (let i = 0; i <= nMinus1; i++) {
+    const c = read(4);
+    if (c === null) return null;
+    colors.push(clampColorIndex(c));
+  }
+  // 末尾に丸ごと1文字ぶん以上の余りがあるコードは、打ち間違い・途中で余計な文字が
+  // 付いたものとみなして受け付けない(Base32の端数埋めは最大4bitしか出ないため)
+  if (bits.length - used >= 5) return null;
+  const out = {
+    pattern, colors, soloFill: !!soloFill, tape: TAPE_COLORS[tapeIdx] || 'brown',
+  };
+  if (kernel) out.kernel = kernel;
+  return out;
+}
+
+// 見た目を共有コードへエンコードする。共有URLやテキストでの再入力用。
+// 現行の4パターン・4色以内なら今まで通りの16進6桁になり、それを超えるときだけ
+// 'G'で始まる可変長コードになる
+export function encodeAppearance(appearance) {
+  const app = clampAppearance(appearance);
+  return fitsV0(app) ? encodeV0(app) : encodeV1(app);
+}
+
+// コード文字列を見た目へ変換する。読めなければnullを返す
+function parseCode(code) {
+  if (typeof code !== 'string') return null;
+  // Crockfordの読み替え(I/L→1、O→0)を先に済ませてから判定する
+  const s = code.trim().toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0');
+  if (!s || s.length > MAX_CODE_LENGTH) return null;
+  if (/^[0-9A-F]{1,6}$/.test(s)) return decodeV0(s);
+  if (s.length > 1 && s[0] === V1_PREFIX && /^[0-9A-Z]+$/.test(s)) return decodeV1(s);
+  return null;
+}
+
+// 共有コードから見た目をデコードする。不正な値は既定(赤の濃淡2トーン・茶色)にフォールバックする
+export function decodeAppearance(code) {
+  return parseCode(code) || defaultAppearance();
+}
+
+// コード入力欄の検証用。decodeAppearance()は必ず何かを返すので、
+// 「打ち間違いなのか、本当にその見た目なのか」はこちらで判定する
+export function isValidAppearanceCode(code) {
+  return parseCode(code) !== null;
+}
+
 // ゴアg・縦位置vにおける「色スロット番号」(0..N-1)を返す。N===1のときは常に0
 // (呼び出し側=main.jsが単色の濃淡/塗り潰しを別途処理する)
 export function colorSlotAt(appearance, g, v) {
   const n = appearance.colors.length;
   if (n <= 1) return 0;
-  const pat = PATTERNS[appearance.pattern] || PATTERNS.alt;
-  return ((pat.colorIndex(g, v, n) % n) + n) % n;
+  const pat = resolvePattern(appearance);
+  return mod(pat.colorIndex(g, v, n), n);
 }
