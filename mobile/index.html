@@ -299,6 +299,11 @@
   .balloon-kernel-row { margin-bottom: 6px; }
   .balloon-kernel-opts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
   .balloon-kernel-opts .mp-btn { padding: 2px 7px; font-size: 12px; }
+  /* 展開図から取り込んだ柄を選んでいるときの注記(柄ボタンには並ばないため) */
+  #balloon-gridnote {
+    margin: 0 0 10px; padding: 7px 9px; border: 1px dashed #345a7a; border-radius: 4px;
+    background: rgba(13, 22, 32, 0.6); font-size: 12px; color: #9ecfff;
+  }
   .balloon-slot { margin-bottom: 8px; }
   .balloon-swatches { display: flex; gap: 5px; flex-wrap: wrap; margin: 4px 0; }
   .balloon-swatches button {
@@ -593,6 +598,7 @@
     <div class="b-sub" style="margin-top:6px" data-i18n="balloon.patternLabel">柄</div>
     <div class="balloon-pattern-row" id="balloon-pattern-row"></div>
     <div id="balloon-kernel" style="display:none"></div>
+    <div id="balloon-gridnote" style="display:none"></div>
     <div class="b-sub" data-i18n="balloon.colorCountLabel">色数</div>
     <div class="balloon-count-row" id="balloon-count-row"></div>
     <div class="balloon-count-row" id="balloon-solofill-row" style="display:none"></div>
@@ -601,7 +607,7 @@
     <div class="balloon-count-row" id="balloon-tape-row"></div>
     <div class="b-sub" data-i18n="balloon.codeLabel">コード</div>
     <div class="mp-row">
-      <input type="text" id="balloon-code-in" maxlength="24">
+      <input type="text" id="balloon-code-in" maxlength="512">
       <button type="button" class="mp-btn" id="balloon-code-apply" data-i18n="balloon.codeApplyBtn">適用</button>
       <button type="button" class="mp-btn" id="balloon-code-copy" data-i18n="balloon.codeCopyBtn">コピー</button>
     </div>

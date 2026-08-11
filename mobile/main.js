@@ -9,7 +9,7 @@ import { Room, randomRoomCode, BALLOON_COLORS } from './net.js';
 import {
   GORES, MAX_COLORS, DEFAULT_APPEARANCE, PATTERN_IDS, TAPE_COLORS,
   encodeAppearance, decodeAppearance, colorSlotAt, resolvePattern, isValidAppearanceCode,
-  CUSTOM_PATTERN, DEFAULT_KERNEL,
+  CUSTOM_PATTERN, GRID_PATTERN, DEFAULT_KERNEL,
   KERNEL_SLICES, KERNEL_KG_VALUES, KERNEL_MAPPINGS, KERNEL_WAVE_PERIODS, KERNEL_KV_MAX,
 } from './balloon-appearance.js';
 
@@ -1112,6 +1112,7 @@ function openBalloonModal() {
     pattern: myAppearance.pattern, colors: [...myAppearance.colors],
     soloFill: myAppearance.soloFill, tape: myAppearance.tape,
     kernel: { ...DEFAULT_KERNEL, ...(myAppearance.kernel || {}) },
+    grid: myAppearance.grid || null, // 展開図から取り込んだ柄(コード貼り付けで入る)
   };
   document.getElementById('balloon-code-msg').textContent = '';
   startPreviewAnim(); // renderBalloonModal()がプレビューへ適用する前にpreviewBalloonを用意しておく
@@ -1188,6 +1189,7 @@ function renderBalloonModal() {
   }));
 
   renderKernelSection();
+  renderGridNote();
 
   const countRow = document.getElementById('balloon-count-row');
   const n = balloonDraft.colors.length;
@@ -1257,14 +1259,30 @@ function renderBalloonModal() {
   applyAppearanceToBalloon(previewBalloon, draft);
 }
 
-// 編集中の下書きから、実際に保存・共有する見た目を作る。カーネルのパラメータは
-// カスタム柄を選んでいるときだけ載せる(プリセットに余計なキーが付かないようにする)
+// 展開図から取り込んだ柄(コード貼り付けで入る)を選んでいるときの表示。
+// 柄ボタンには並ばないので、いま何が入っているかをここで知らせる
+function renderGridNote() {
+  const box = document.getElementById('balloon-gridnote');
+  if (balloonDraft.pattern !== GRID_PATTERN || !balloonDraft.grid) {
+    box.style.display = 'none';
+    box.textContent = '';
+    return;
+  }
+  const g = balloonDraft.grid;
+  box.style.display = '';
+  box.textContent = t('balloon.gridNote', { s: g.slices, r: g.rows.length });
+}
+
+// 編集中の下書きから、実際に保存・共有する見た目を作る。カーネルのパラメータや
+// 展開図のマス目は、その柄を選んでいるときだけ載せる
+// (プリセットに余計なキーが付かないようにする)
 function appearanceFromDraft() {
   const app = {
     pattern: balloonDraft.pattern, colors: [...balloonDraft.colors],
     soloFill: balloonDraft.soloFill, tape: balloonDraft.tape,
   };
   if (balloonDraft.pattern === CUSTOM_PATTERN) app.kernel = { ...balloonDraft.kernel };
+  if (balloonDraft.pattern === GRID_PATTERN && balloonDraft.grid) app.grid = balloonDraft.grid;
   return app;
 }
 
@@ -1324,7 +1342,7 @@ function initBalloonModalUI() {
     }
     // カスタム柄以外のコードを貼られてもパラメータ欄が空にならないよう、
     // 編集中のカーネル設定は残したまま上書きする
-    balloonDraft = { kernel: { ...balloonDraft.kernel }, ...decodeAppearance(raw) };
+    balloonDraft = { kernel: { ...balloonDraft.kernel }, grid: null, ...decodeAppearance(raw) };
     document.getElementById('balloon-code-msg').textContent = '';
     renderBalloonModal();
   });

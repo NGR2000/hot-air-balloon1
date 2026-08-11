@@ -266,8 +266,19 @@ function sameKernelAsCache(k) {
 
 // 見た目からパターン定義を引く。プリセット階(PATTERNS)とカーネル階のどちらであっても、
 // {colorIndex, fineSlices, alignSeams, skirtUsesTopColor} という同じ形が返る
+let gridCacheSrc = null;
+let gridCacheValue = null;
+
 export function resolvePattern(appearance) {
   const app = appearance || DEFAULT_APPEARANCE;
+  if (app.pattern === GRID_PATTERN) {
+    // マス目は配列なので中身の比較が高くつく。同じ配列を指している間は作り直さない
+    if (app.grid === gridCacheSrc && gridCacheValue) return gridCacheValue;
+    const g = clampGrid(app.grid);
+    gridCacheSrc = app.grid;
+    gridCacheValue = makeGridPattern(GRID_PATTERN, g.slices, g.rows);
+    return gridCacheValue;
+  }
   if (app.pattern !== CUSTOM_PATTERN) return PATTERNS[app.pattern] || PATTERNS.alt;
   const k = app.kernel || DEFAULT_KERNEL;
   if (sameKernelAsCache(k)) return kernelCacheValue;
@@ -279,6 +290,78 @@ export function resolvePattern(appearance) {
   };
   kernelCacheValue = buildKernelPattern(k);
   return kernelCacheValue;
+}
+
+// ===========================================================================
+// マス目階(展開図をそのまま持つ柄)
+// ===========================================================================
+// 実機の柄は「上半分だけ位相をずらす」「最下段はベタ塗り」のような写真合わせの例外を
+// 含むことが多く、数式に押し込めると見た目が崩れる。そこで展開図(メーカー図面と同じ
+// 列×段のマス目)をそのまま持てるようにする。
+//
+// 使いみちは2つあり、どちらも同じ makeGridPattern() を通る:
+//   1. 実機由来の柄を PATTERNS へプリセットとして足す(共有コードは番号だけで数文字)
+//   2. プレイヤーが自作した柄を v2 コードに載せて配る(デプロイ不要・その代わり長い)
+//
+// rows[0] が一番下の段。値は色スロット番号(0..N-1)で、実際のパレット番号ではない。
+// 横方向は period 列ぶんだけ持ち、それを繰り返して S 列を埋める(実機の柄は
+// 「一周に山が3回」のように周期を持つことが多く、ここが効いてコードが短くなる)
+export function makeGridPattern(id, slices, rows, opts) {
+  const S = slices;
+  const R = rows.length;
+  const period = rows[0].length;
+  const o = opts || {};
+  return {
+    id,
+    slices: S,
+    rows,
+    fineSlices: S,
+    alignSeams: S !== GORES,
+    // 展開図の最上段が濃色で、開口部のスカートもそこへ合わせるのが実機の通例
+    skirtUsesTopColor: o.skirtUsesTopColor !== false,
+    colorIndex: (g, v, n) => {
+      if (n <= 1) return 0;
+      const c = mod(Math.floor((mod(g, GORES) / GORES) * S), period);
+      // v=0が頂点なので、下から数える段番号に直す
+      const r = Math.min(R - 1, Math.max(0, Math.floor((1 - v) * R)));
+      return Math.min(n - 1, rows[r][c]);
+    },
+  };
+}
+
+// 横方向にどれだけの周期で繰り返しているかを調べる。Sの約数のうち最小のものを返す
+// (繰り返しが無ければSそのもの)。エンコード時にコードを最短にするために使う
+function horizontalPeriod(rows, slices) {
+  const R = rows.length;
+  for (let p = 1; p <= slices; p++) {
+    if (slices % p) continue;
+    let ok = true;
+    for (let r = 0; r < R && ok; r++) {
+      for (let c = 0; c < slices; c++) {
+        if (rows[r][mod(c, rows[r].length)] !== rows[r][mod(c + p, rows[r].length)]) { ok = false; break; }
+      }
+    }
+    if (ok) return p;
+  }
+  return slices;
+}
+
+// マス目の柄を持つ見た目かどうか
+export const GRID_PATTERN = 'grid';
+// 段数の上限(5bit)。実機の展開図は13段前後なので十分な余裕がある
+export const GRID_MAX_ROWS = 32;
+
+function clampGrid(grid) {
+  const src = grid || {};
+  const slices = KERNEL_SLICES.includes(src.slices) ? src.slices : 24;
+  const rawRows = Array.isArray(src.rows) && src.rows.length ? src.rows : [[0]];
+  const rows = rawRows.slice(0, GRID_MAX_ROWS)
+    .map((row) => (Array.isArray(row) && row.length ? row : [0])
+      .slice(0, slices)
+      .map((c) => (Number.isInteger(c) && c >= 0 ? Math.min(c, MAX_COLORS - 1) : 0)));
+  // 段ごとに長さがまちまちだと周期がずれるので、一番短い段に揃える
+  const period = Math.max(1, Math.min(...rows.map((r) => r.length)));
+  return { slices, rows: rows.map((r) => r.slice(0, period)) };
 }
 
 // ===========================================================================
@@ -297,9 +380,14 @@ export function resolvePattern(appearance) {
 // 同じ情報量なら約25%短く、かつ大文字だけなので口頭でも伝えられる
 const B32_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const V1_PREFIX = 'G'; // 16進には無くBase32には有る文字なので、旧コードと衝突しない
-// v1で一番長くなるのは「カーネル+16色」の20文字。将来の拡張ぶんを見て24文字を上限とし、
-// これを超える入力は壊れたコードとして扱う(サーバー側の受け入れ上限と同じ値)
-export const MAX_CODE_LENGTH = 24;
+const V2_PREFIX = 'H'; // マス目をそのまま載せる形式。v0/v1とは先頭1文字で区別できる
+// v2はマス目のぶんだけ長くなる。24列×13段・4色のMV-56b相当なら周期が畳まれて約50文字、
+// 繰り返しが全く無くても約70文字。上限は「実機で有り得る展開図はひととおり収まり、
+// かつ1人あたりの中継量が跳ね上がらない」ところに置いた。
+// これを超える大きさのマス目(48列×24段を16色で埋めるなど)はコードにできないので、
+// その場合は実装へプリセットとして組み込む道になる。
+// v0(6文字)・v1(最長20文字)には影響しない(サーバー側の受け入れ上限と同じ値)
+export const MAX_CODE_LENGTH = 512;
 
 function clampColorIndex(i) {
   return Number.isInteger(i) && i >= 0 && i < BALLOON_COLORS.length ? i : 0;
@@ -308,12 +396,14 @@ function clampColorIndex(i) {
 function clampAppearance(app) {
   const src = app || {};
   const isCustom = src.pattern === CUSTOM_PATTERN;
-  const pattern = isCustom || PATTERN_IDS.includes(src.pattern) ? src.pattern : 'alt';
+  const isGrid = src.pattern === GRID_PATTERN;
+  const pattern = isCustom || isGrid || PATTERN_IDS.includes(src.pattern) ? src.pattern : 'alt';
   const rawColors = Array.isArray(src.colors) && src.colors.length ? src.colors : [0];
   const colors = rawColors.slice(0, MAX_COLORS).map(clampColorIndex);
   const tape = TAPE_COLORS.includes(src.tape) ? src.tape : 'brown';
   const out = { pattern, colors, soloFill: !!src.soloFill, tape };
   if (isCustom) out.kernel = clampKernel(src.kernel);
+  if (isGrid) out.grid = clampGrid(src.grid);
   return out;
 }
 
@@ -474,11 +564,94 @@ function decodeV1(code) {
   return out;
 }
 
+// 1マスに何bit要るか。1色のときはマス目自体が要らない
+function bitsPerCell(n) {
+  return n <= 1 ? 0 : Math.ceil(Math.log2(n));
+}
+
+// v2: [3bit S] + [5bit 段数-1] + [6bit 横周期] + [塗り潰し1bit] + [テープ2bit] +
+//     [色数-1 4bit] + [色 4bit×色数] + [マス目 (周期×段数)×1マスのbit数]
+// マス目は下の段から順、各段は左の列から順に並べる
+function encodeV2(app) {
+  const g = app.grid;
+  const S = g.slices;
+  const R = g.rows.length;
+  const period = horizontalPeriod(g.rows, S);
+  const n = app.colors.length;
+  const bpc = bitsPerCell(n);
+
+  const bits = [];
+  pushBits(bits, KERNEL_SLICES.indexOf(S), 3);
+  pushBits(bits, R - 1, 5);
+  pushBits(bits, period, 6);
+  pushBits(bits, app.soloFill ? 1 : 0, 1);
+  pushBits(bits, TAPE_COLORS.indexOf(app.tape), 2);
+  pushBits(bits, n - 1, 4);
+  for (const c of app.colors) pushBits(bits, c, 4);
+  if (bpc > 0) {
+    for (let r = 0; r < R; r++) {
+      const row = g.rows[r];
+      for (let c = 0; c < period; c++) pushBits(bits, Math.min(n - 1, row[mod(c, row.length)]), bpc);
+    }
+  }
+  return V2_PREFIX + bitsToBase32(bits);
+}
+
+function decodeV2(code) {
+  const bits = base32ToBits(code.slice(V2_PREFIX.length));
+  if (!bits) return null;
+  let used = 0;
+  const reader = makeBitReader(bits);
+  const read = (n) => { const v = reader(n); if (v !== null) used += n; return v; };
+
+  const sIdx = read(3);
+  const rMinus1 = read(5);
+  const rawPeriod = read(6);
+  const soloFill = read(1);
+  const tapeIdx = read(2);
+  const nMinus1 = read(4);
+  if (nMinus1 === null) return null;
+
+  const S = KERNEL_SLICES[sIdx];
+  const R = rMinus1 + 1;
+  // 周期はSの約数でなければ意味を成さない。壊れていたら繰り返し無しとして読む
+  const period = rawPeriod >= 1 && rawPeriod <= S && S % rawPeriod === 0 ? rawPeriod : S;
+
+  const n = nMinus1 + 1;
+  const colors = [];
+  for (let i = 0; i < n; i++) {
+    const c = read(4);
+    if (c === null) return null;
+    colors.push(clampColorIndex(c));
+  }
+  const bpc = bitsPerCell(n);
+  const rows = [];
+  for (let r = 0; r < R; r++) {
+    const row = [];
+    for (let c = 0; c < period; c++) {
+      if (bpc === 0) { row.push(0); continue; }
+      const v = read(bpc);
+      if (v === null) return null;
+      row.push(Math.min(n - 1, v));
+    }
+    rows.push(row);
+  }
+  if (bits.length - used >= 5) return null; // 末尾に余計な文字が付いている
+  return {
+    pattern: GRID_PATTERN,
+    colors,
+    soloFill: !!soloFill,
+    tape: TAPE_COLORS[tapeIdx] || 'brown',
+    grid: { slices: S, rows },
+  };
+}
+
 // 見た目を共有コードへエンコードする。共有URLやテキストでの再入力用。
-// 現行の4パターン・4色以内なら今まで通りの16進6桁になり、それを超えるときだけ
-// 'G'で始まる可変長コードになる
+// 現行の4パターン・4色以内なら今まで通りの16進6桁、カスタム柄(数式)や5色目からは
+// 'G'で始まる可変長、マス目をそのまま持つ柄は'H'で始まる長いコードになる
 export function encodeAppearance(appearance) {
   const app = clampAppearance(appearance);
+  if (app.pattern === GRID_PATTERN) return encodeV2(app);
   return fitsV0(app) ? encodeV0(app) : encodeV1(app);
 }
 
@@ -489,7 +662,9 @@ function parseCode(code) {
   const s = code.trim().toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0');
   if (!s || s.length > MAX_CODE_LENGTH) return null;
   if (/^[0-9A-F]{1,6}$/.test(s)) return decodeV0(s);
-  if (s.length > 1 && s[0] === V1_PREFIX && /^[0-9A-Z]+$/.test(s)) return decodeV1(s);
+  if (s.length > 1 && !/^[0-9A-Z]+$/.test(s)) return null;
+  if (s[0] === V1_PREFIX) return decodeV1(s);
+  if (s[0] === V2_PREFIX) return decodeV2(s);
   return null;
 }
 

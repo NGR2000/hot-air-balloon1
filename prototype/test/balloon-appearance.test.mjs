@@ -4,7 +4,8 @@ import { createHash } from 'node:crypto';
 import {
   PATTERNS, PATTERN_IDS, GORES, MAX_COLORS, DEFAULT_APPEARANCE, TAPE_COLORS,
   encodeAppearance, decodeAppearance, colorSlotAt,
-  CUSTOM_PATTERN, DEFAULT_KERNEL, MAX_CODE_LENGTH, resolvePattern,
+  CUSTOM_PATTERN, DEFAULT_KERNEL, MAX_CODE_LENGTH, resolvePattern, isValidAppearanceCode,
+  GRID_PATTERN, makeGridPattern,
   KERNEL_SLICES, KERNEL_KG_VALUES, KERNEL_MAPPINGS, KERNEL_WAVE_PERIODS,
 } from '../balloon-appearance.js';
 
@@ -448,4 +449,190 @@ test('resolvePattern: プリセットもカスタムも同じ形(描画側が分
 
 test('resolvePattern: 未知のパターン名は交互(alt)へフォールバックする', () => {
   assert.equal(resolvePattern({ pattern: 'なにか', colors: [0, 1] }), PATTERNS.alt);
+});
+
+// ---------------------------------------------------------------------------
+// マス目階(展開図をそのまま持つ柄) と v2 コード
+// ---------------------------------------------------------------------------
+
+// エディタが展開図を焼き込むのと同じ手順で、柄からマス目を作る
+function gridOf(pat, slices, rows, n) {
+  const out = [];
+  for (let r = 0; r < rows; r++) {
+    const row = [];
+    for (let c = 0; c < slices; c++) {
+      const g = ((c + 0.5) * GORES) / slices;
+      const v = 1 - (r + 0.5) / rows;
+      row.push(((pat.colorIndex(g, v, n) % n) + n) % n);
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+// 2つの見た目が同じ塗り分けになるか(復号後は横周期ぶんしか持たないので配列では比べられない)
+function rendersSame(a, b, slices) {
+  for (let c = 0; c < slices; c++) {
+    for (let y = 0; y < 64; y++) {
+      const g = ((c + 0.5) * GORES) / slices;
+      const v = (y + 0.5) / 64;
+      if (colorSlotAt(a, g, v) !== colorSlotAt(b, g, v)) return false;
+    }
+  }
+  return true;
+}
+
+const MV56B = {
+  pattern: GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown',
+  grid: { slices: 24, rows: gridOf(PATTERNS.sapphire, 24, 13, 4) },
+};
+
+test('makeGridPattern: PATTERNSの要素と同じ形を返し、プリセットとして使える', () => {
+  const rows = gridOf(PATTERNS.sapphire, 24, 13, 4);
+  const def = makeGridPattern('mv56b', 24, rows);
+  assert.equal(typeof def.colorIndex, 'function');
+  assert.equal(def.fineSlices, 24);
+  assert.equal(def.alignSeams, true);
+  assert.equal(def.skirtUsesTopColor, true);
+  // 焼き込み元と同じ塗り分けになる(段の境目の丸めを含めて)
+  for (let r = 0; r < 13; r++) {
+    for (let c = 0; c < 24; c++) {
+      const g = ((c + 0.5) * GORES) / 24;
+      const v = 1 - (r + 0.5) / 13;
+      assert.equal(def.colorIndex(g, v, 4), rows[r][c], `r=${r} c=${c}`);
+    }
+  }
+});
+
+test('プリセット追加: 5つ目以降の柄もv1のプリセット番号で往復できる', () => {
+  // 実際にPATTERNSへ足したときと同じ状態を作って確かめ、終わったら元へ戻す
+  const rows = gridOf(PATTERNS.sapphire, 24, 13, 4);
+  PATTERNS.mv56b = makeGridPattern('mv56b', 24, rows);
+  PATTERN_IDS.push('mv56b');
+  try {
+    assert.equal(PATTERN_IDS.indexOf('mv56b'), 4, '5つ目の枠に入る');
+    const app = { pattern: 'mv56b', colors: [8, 6, 1, 12], soloFill: false, tape: 'brown' };
+    const code = encodeAppearance(app);
+    // v0はパターン2bitしか無いので、5つ目からは自動的にv1へ切り替わる
+    assert.equal(code[0], 'G', `v1になっていない: ${code}`);
+    assert.ok(code.length <= 8, `プリセットなら短いままのはず: ${code}`);
+    assert.deepEqual(decodeAppearance(code), app);
+    assert.equal(resolvePattern(app), PATTERNS.mv56b);
+  } finally {
+    delete PATTERNS.mv56b;
+    PATTERN_IDS.pop();
+  }
+});
+
+test('プリセット追加: 手元が知らないプリセット番号は既定の柄へ落ちる', () => {
+  // 新しい柄を持つクライアントから、まだ更新していないクライアントへコードが渡る場面
+  const rows = gridOf(PATTERNS.sapphire, 24, 13, 4);
+  PATTERNS.future = makeGridPattern('future', 24, rows);
+  PATTERN_IDS.push('future');
+  let code;
+  try {
+    code = encodeAppearance({ pattern: 'future', colors: [1, 2], soloFill: false, tape: 'brown' });
+  } finally {
+    delete PATTERNS.future;
+    PATTERN_IDS.pop();
+  }
+  const decoded = decodeAppearance(code);
+  assert.equal(decoded.pattern, 'alt', '知らない番号は交互へフォールバックする');
+  assert.deepEqual(decoded.colors, [1, 2], '色は正しく読める');
+});
+
+test('v2: マス目の柄は H で始まるコードになり、塗り分けが完全に往復する', () => {
+  const code = encodeAppearance(MV56B);
+  assert.equal(code[0], 'H');
+  assert.ok(code.length <= MAX_CODE_LENGTH);
+  const back = decodeAppearance(code);
+  assert.equal(back.pattern, GRID_PATTERN);
+  assert.equal(back.grid.slices, 24);
+  assert.equal(back.grid.rows.length, 13);
+  assert.deepEqual(back.colors, MV56B.colors);
+  assert.equal(back.tape, 'brown');
+  assert.ok(rendersSame(MV56B, back, 24), '往復後の塗り分けがずれている');
+});
+
+test('v2: 横の繰り返しを畳んでコードを短くする', () => {
+  const code = encodeAppearance(MV56B);
+  const back = decodeAppearance(code);
+  // MV-56bは一周に山が3回なので、24列は8列の繰り返しになる
+  assert.equal(back.grid.rows[0].length, 8, '周期8列に畳まれていない');
+  assert.ok(code.length < 60, `畳めていれば60文字未満のはず: ${code.length}`);
+
+  // 繰り返しの無い柄は畳まれず、そのぶん長くなる
+  let seed = 7;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const rows = Array.from({ length: 13 }, () => Array.from({ length: 24 }, () => rand(4)));
+  const app = { pattern: GRID_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown',
+    grid: { slices: 24, rows } };
+  const c2 = decodeAppearance(encodeAppearance(app));
+  assert.equal(c2.grid.rows[0].length, 24);
+  assert.ok(rendersSame(app, c2, 24));
+});
+
+test('v2: 色数1〜16・テープ3種・分割8〜48で往復できる', () => {
+  for (const slices of KERNEL_SLICES) {
+    for (const n of [1, 2, 4, 7, 16]) {
+      for (const tape of TAPE_COLORS) {
+        let seed = slices * 31 + n;
+        const rand = (m) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+        const rows = Array.from({ length: 9 }, () => Array.from({ length: slices }, () => rand(n)));
+        const app = {
+          pattern: GRID_PATTERN, colors: Array.from({ length: n }, (_, i) => i),
+          soloFill: false, tape, grid: { slices, rows },
+        };
+        const back = decodeAppearance(encodeAppearance(app));
+        assert.equal(back.pattern, GRID_PATTERN, `${slices}/${n}/${tape}`);
+        assert.deepEqual(back.colors, app.colors);
+        assert.equal(back.tape, tape);
+        assert.ok(rendersSame(app, back, slices), `塗り分けがずれた ${slices}/${n}/${tape}`);
+      }
+    }
+  }
+});
+
+test('v2: 大きすぎるマス目はコードにできない(プリセットの道になる)', () => {
+  let seed = 99;
+  const rand = (m) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+  const rows = Array.from({ length: 24 }, () => Array.from({ length: 48 }, () => rand(16)));
+  const app = { pattern: GRID_PATTERN, colors: Array.from({ length: 16 }, (_, i) => i),
+    soloFill: false, tape: 'brown', grid: { slices: 48, rows } };
+  const code = encodeAppearance(app);
+  assert.ok(code.length > MAX_CODE_LENGTH, '上限を超える想定のケース');
+  assert.equal(isValidAppearanceCode(code), false, '長すぎるコードは受け付けない');
+  assert.equal(decodeAppearance(code).pattern, 'alt', '既定へフォールバックする');
+});
+
+test('v2: 壊れたコードは既定値へフォールバックする', () => {
+  for (const bad of ['H', 'H!!!', 'HRT', `H${'Z'.repeat(600)}`]) {
+    assert.equal(isValidAppearanceCode(bad), false, `受理してはいけない: ${bad}`);
+    assert.deepEqual(decodeAppearance(bad), { ...DEFAULT_APPEARANCE, colors: [0] });
+  }
+});
+
+test('v2: 不正なマス目(段が不揃い・範囲外の値)は丸められる', () => {
+  const app = {
+    pattern: GRID_PATTERN, colors: [0, 1], soloFill: false, tape: 'brown',
+    grid: { slices: 24, rows: [[0, 1, 0], [1, 0], [9, -3, 'x', 1]] },
+  };
+  const back = decodeAppearance(encodeAppearance(app));
+  assert.equal(back.grid.rows.length, 3);
+  // 一番短い段(2列)に揃えられ、値も色数の範囲へ収まる
+  assert.equal(back.grid.rows[0].length, 2);
+  for (const row of back.grid.rows) {
+    for (const c of row) assert.ok(Number.isInteger(c) && c >= 0 && c < 2, `範囲外: ${c}`);
+  }
+});
+
+test('v0/v1はv2を足しても一切変わらない', () => {
+  assert.equal(encodeAppearance(DEFAULT_APPEARANCE), '000000');
+  assert.equal(encodeAppearance({ pattern: 'sapphire', colors: [0, 1, 2, 3], soloFill: false, tape: 'brown' }), '06420F');
+  const v1 = encodeAppearance({
+    pattern: CUSTOM_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown',
+    kernel: { ...DEFAULT_KERNEL },
+  });
+  assert.equal(v1[0], 'G');
+  assert.equal(decodeAppearance(v1).pattern, CUSTOM_PATTERN);
 });

@@ -42,15 +42,26 @@ test('appearance(気球の柄+配色コード)はjoin時に検証・保存され
 
 test('appearance: カスタム柄の可変長コード(Base32)も中継できる', () => {
   const room = new RoomCore();
-  // カーネル+16色のコードが最長20文字になる。24文字までは受け付け、それを超えたら捨てる
+  // カーネル+16色のコードが最長20文字。小文字は大文字へ正規化して保存する
   const longest = 'GZY5YKW0J6HB7H6NWVVR';
   const a = room.join('Alice', 2, true, 0, longest);
-  const b = room.join('Bob', 5, false, 0, 'G'.repeat(25));
   const c = room.join('Carol', 5, false, 0, 'g1gw0j6hb7');
   const roster = room.roster();
   assert.equal(roster.find((p) => p.id === a.id).appearance, longest, '20文字のコードはそのまま保存される');
-  assert.equal(roster.find((p) => p.id === b.id).appearance, null, '24文字を超えたらnull');
   assert.equal(roster.find((p) => p.id === c.id).appearance, 'G1GW0J6HB7', '小文字は大文字へ正規化される');
+});
+
+test('appearance: 展開図のマス目コード(H始まり)も中継でき、上限を超えたら捨てる', () => {
+  const room = new RoomCore();
+  // 実機相当(24列×13段・4色)のマス目コードは50文字前後になる
+  const grid = 'HHGG1RC77ZZX2884K196C2CSMSK5K6DPCSPSKYV7NVFFQEXEXV';
+  const a = room.join('Alice', 2, true, 0, grid);
+  const b = room.join('Bob', 5, false, 0, 'H'.repeat(513));
+  const c = room.join('Carol', 5, false, 0, `H${'Z'.repeat(511)}`);
+  const roster = room.roster();
+  assert.equal(roster.find((p) => p.id === a.id).appearance, grid, '50文字のマス目コードはそのまま保存される');
+  assert.equal(roster.find((p) => p.id === b.id).appearance, null, '512文字を超えたらnull');
+  assert.equal(roster.find((p) => p.id === c.id).appearance.length, 512, '512文字ちょうどは受け付ける');
 });
 
 test('color: パレット16色ぶんの番号を受け付ける', () => {
