@@ -6,6 +6,7 @@ import {
   encodeAppearance, decodeAppearance, colorSlotAt,
   CUSTOM_PATTERN, DEFAULT_KERNEL, MAX_CODE_LENGTH, resolvePattern, isValidAppearanceCode,
   GRID_PATTERN, makeGridPattern,
+  TRI_GRID_PATTERN, makeTriGridPattern,
   KERNEL_SLICES, KERNEL_KG_VALUES, KERNEL_MAPPINGS, KERNEL_WAVE_PERIODS,
 } from '../balloon-appearance.js';
 
@@ -635,4 +636,182 @@ test('v0/v1はv2を足しても一切変わらない', () => {
   });
   assert.equal(v1[0], 'G');
   assert.equal(decodeAppearance(v1).pattern, CUSTOM_PATTERN);
+});
+
+// ---------------------------------------------------------------------------
+// 第4段階: 三角マス目(1マスを対角線で2色に割る柄。実機のMV-65のようなパネル)
+// ---------------------------------------------------------------------------
+
+// makeTriGridPattern()単体でのジオメトリ確認。gore座標(g)・縦位置(v)から
+// セル内の位置(lu, lv)を導き、対角線のどちら側かで色が決まることを直接検証する
+test('makeTriGridPattern: dir=0("\\")は左下(lu+lv<1)がa、右上がb', () => {
+  const pat = makeTriGridPattern('t', 1, [[{ a: 0, b: 1, dir: 0 }]]);
+  // lu=0.25,lv=0.25(左下寄り) → a
+  assert.equal(pat.colorIndex(0.25 * GORES, 0.75, 2), 0);
+  // lu=0.9,lv=0.9(右上寄り) → b
+  assert.equal(pat.colorIndex(0.9 * GORES, 0.1, 2), 1);
+});
+
+test('makeTriGridPattern: dir=1("/")は左上(lv>lu)がa、右下がb', () => {
+  const pat = makeTriGridPattern('t', 1, [[{ a: 2, b: 3, dir: 1 }]]);
+  // lu=0.2,lv=0.8(左上寄り) → a
+  assert.equal(pat.colorIndex(0.2 * GORES, 0.2, 4), 2);
+  // lu=0.8,lv=0.2(右下寄り) → b
+  assert.equal(pat.colorIndex(0.8 * GORES, 0.8, 4), 3);
+});
+
+test('makeTriGridPattern: PATTERNS/makeGridPatternと同じ形({colorIndex,fineSlices,alignSeams,skirtUsesTopColor})を返す', () => {
+  const pat = makeTriGridPattern('t', 24, [[{ a: 0, b: 1, dir: 0 }]]);
+  assert.equal(typeof pat.colorIndex, 'function');
+  assert.equal(pat.fineSlices, 24);
+  assert.equal(pat.alignSeams, true);
+  assert.equal(pat.skirtUsesTopColor, true);
+});
+
+test('v3: 三角マス目はJで始まるコードになり、塗り分けが完全に往復する', () => {
+  // a/bは色スロット番号(0..colors.length-1)。パレット番号そのものではない
+  const rows = [
+    [{ a: 3, b: 2, dir: 0 }, { a: 0, b: 3, dir: 1 }, { a: 2, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 },
+      { a: 3, b: 0, dir: 0 }, { a: 2, b: 3, dir: 1 }, { a: 0, b: 2, dir: 0 }, { a: 3, b: 3, dir: 1 }],
+    [{ a: 0, b: 3, dir: 1 }, { a: 2, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 }, { a: 3, b: 2, dir: 0 },
+      { a: 2, b: 0, dir: 1 }, { a: 3, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 }, { a: 0, b: 2, dir: 0 }],
+  ];
+  const app = { pattern: TRI_GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown', triGrid: { slices: 8, rows } };
+  const code = encodeAppearance(app);
+  assert.equal(code[0], 'J');
+  assert.ok(code.length <= MAX_CODE_LENGTH);
+  const back = decodeAppearance(code);
+  assert.equal(back.pattern, TRI_GRID_PATTERN);
+  assert.equal(back.triGrid.slices, 8);
+  assert.equal(back.triGrid.rows.length, 2);
+  assert.deepEqual(back.triGrid.rows, rows);
+  assert.deepEqual(back.colors, app.colors);
+  assert.equal(back.tape, 'brown');
+});
+
+test('v3: 横の繰り返しを畳んでコードを短くする', () => {
+  // 24列だが実際は8列の繰り返し。8個は互いに全て異なるセルなので、
+  // 8より小さい周期(1,2,4)には縮まらない(どの約数で比べても必ずどこかが違う)
+  const cells8 = [
+    { a: 0, b: 1, dir: 0 }, { a: 1, b: 2, dir: 1 }, { a: 2, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 },
+    { a: 0, b: 2, dir: 0 }, { a: 1, b: 3, dir: 1 }, { a: 2, b: 0, dir: 0 }, { a: 3, b: 1, dir: 1 },
+  ];
+  const rows = Array.from({ length: 13 }, () => Array.from({ length: 24 }, (_, i) => cells8[i % 8]));
+  const app = { pattern: TRI_GRID_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown', triGrid: { slices: 24, rows } };
+  const back = decodeAppearance(encodeAppearance(app));
+  assert.equal(back.triGrid.rows[0].length, 8, '周期8列に畳まれていない');
+
+  // 繰り返しの無い柄は畳まれず、そのぶん長くなる
+  let seed = 11;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const randRows = Array.from({ length: 13 }, () => Array.from({ length: 24 },
+    () => ({ a: rand(4), b: rand(4), dir: rand(2) })));
+  const app2 = { pattern: TRI_GRID_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown', triGrid: { slices: 24, rows: randRows } };
+  const c2 = decodeAppearance(encodeAppearance(app2));
+  assert.equal(c2.triGrid.rows[0].length, 24);
+});
+
+test('v3: 色数1〜16・テープ3種・分割8〜48で往復できる', () => {
+  for (const slices of KERNEL_SLICES) {
+    for (const n of [1, 2, 4, 7, 16]) {
+      for (const tape of TAPE_COLORS) {
+        let seed = slices * 31 + n;
+        const rand = (m) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+        const rows = Array.from({ length: 5 }, () => Array.from({ length: slices },
+          () => ({ a: rand(n), b: rand(n), dir: rand(2) })));
+        const app = {
+          pattern: TRI_GRID_PATTERN, colors: Array.from({ length: n }, (_, i) => i),
+          soloFill: false, tape, triGrid: { slices, rows },
+        };
+        const back = decodeAppearance(encodeAppearance(app));
+        assert.equal(back.pattern, TRI_GRID_PATTERN, `${slices}/${n}/${tape}`);
+        assert.deepEqual(back.colors, app.colors);
+        assert.equal(back.tape, tape);
+        assert.ok(rendersSame(app, back, slices), `塗り分けがずれた ${slices}/${n}/${tape}`);
+      }
+    }
+  }
+});
+
+test('v3: 24列×13段・4色前後の実機相当の大きさならコード長に収まる', () => {
+  let seed = 77;
+  const rand = (m) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+  const rows = Array.from({ length: 13 }, () => Array.from({ length: 24 },
+    () => ({ a: rand(4), b: rand(4), dir: rand(2) })));
+  const app = { pattern: TRI_GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown', triGrid: { slices: 24, rows } };
+  const code = encodeAppearance(app);
+  assert.ok(code.length <= MAX_CODE_LENGTH, `想定より長い: ${code.length}文字`);
+});
+
+test('v3: 大きすぎるマス目はコードにできない(プリセットの道になる)', () => {
+  let seed = 99;
+  const rand = (m) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % m; };
+  const rows = Array.from({ length: 24 }, () => Array.from({ length: 48 },
+    () => ({ a: rand(16), b: rand(16), dir: rand(2) })));
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: Array.from({ length: 16 }, (_, i) => i),
+    soloFill: false, tape: 'brown', triGrid: { slices: 48, rows },
+  };
+  const code = encodeAppearance(app);
+  assert.ok(code.length > MAX_CODE_LENGTH, '上限を超える想定のケース');
+  assert.equal(isValidAppearanceCode(code), false, '長すぎるコードは受け付けない');
+  assert.equal(decodeAppearance(code).pattern, 'alt', '既定へフォールバックする');
+});
+
+test('v3: 壊れたコードは既定値へフォールバックする', () => {
+  for (const bad of ['J', 'J!!!', 'JRT', `J${'Z'.repeat(600)}`]) {
+    assert.equal(isValidAppearanceCode(bad), false, `受理してはいけない: ${bad}`);
+    assert.deepEqual(decodeAppearance(bad), { ...DEFAULT_APPEARANCE, colors: [0] });
+  }
+});
+
+test('v3: 不正なマス目(段が不揃い・範囲外の値・dirが真偽値でない)は丸められる', () => {
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: [0, 1], soloFill: false, tape: 'brown',
+    triGrid: {
+      slices: 24,
+      rows: [
+        [{ a: 0, b: 1, dir: 0 }, { a: 1, b: 0, dir: 1 }, { a: 0, b: 1, dir: 0 }],
+        [{ a: 9, b: -3, dir: 'x' }, { a: 1, b: 0, dir: 1 }],
+      ],
+    },
+  };
+  const back = decodeAppearance(encodeAppearance(app));
+  assert.equal(back.triGrid.rows.length, 2);
+  // 一番短い段(2列)に揃えられ、値も色数の範囲(0..1)・dirも0/1へ丸められる
+  assert.equal(back.triGrid.rows[0].length, 2);
+  for (const row of back.triGrid.rows) {
+    for (const cell of row) {
+      assert.ok(Number.isInteger(cell.a) && cell.a >= 0 && cell.a < 2, `a範囲外: ${cell.a}`);
+      assert.ok(Number.isInteger(cell.b) && cell.b >= 0 && cell.b < 2, `b範囲外: ${cell.b}`);
+      assert.ok(cell.dir === 0 || cell.dir === 1, `dir不正: ${cell.dir}`);
+    }
+  }
+});
+
+test('resolvePattern: 三角マス目もプリセット/カーネル/マス目と同じ形で返る', () => {
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: [0, 1],
+    triGrid: { slices: 24, rows: [[{ a: 0, b: 1, dir: 0 }]] },
+  };
+  const def = resolvePattern(app);
+  assert.equal(typeof def.colorIndex, 'function');
+  assert.equal(def.fineSlices, 24);
+  assert.equal(def.alignSeams, true);
+});
+
+test('v0/v1/v2はv3を足しても一切変わらない', () => {
+  assert.equal(encodeAppearance(DEFAULT_APPEARANCE), '000000');
+  assert.equal(encodeAppearance({ pattern: 'sapphire', colors: [0, 1, 2, 3], soloFill: false, tape: 'brown' }), '06420F');
+  const v1 = encodeAppearance({
+    pattern: CUSTOM_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown',
+    kernel: { ...DEFAULT_KERNEL },
+  });
+  assert.equal(v1[0], 'G');
+  const v2 = encodeAppearance({
+    pattern: GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown',
+    grid: { slices: 24, rows: [[0, 1, 2, 3]] },
+  });
+  assert.equal(v2[0], 'H');
+  assert.equal(decodeAppearance(v2).pattern, GRID_PATTERN);
 });
