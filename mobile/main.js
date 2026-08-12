@@ -259,10 +259,13 @@ function lighten(hex, k) {
 function buildGoreTexture(bright, appearance) {
   const cv = document.createElement('canvas');
   cv.width = 512;
-  cv.height = 64;
+  const app = appearance || DEFAULT_APPEARANCE;
+  // 三角マス目は対角線をアンチエイリアスで滑らかに見せる必要があるため、
+  // 他の柄より縦解像度を上げる(64pxのままだと1マスの縦幅が数pxしかなく、
+  // 本来直線のはずの対角線がぼやけた階段状にしか見えない)
+  cv.height = app.pattern === TRI_GRID_PATTERN ? 256 : 64;
   const ctx = cv.getContext('2d');
   const w = 512 / GORES;
-  const app = appearance || DEFAULT_APPEARANCE;
   const colorIdxs = app.colors && app.colors.length ? app.colors : [0];
   const palettes = colorIdxs.map((i) => BALLOON_COLORS[i] || BALLOON_COLORS[0]);
 
@@ -278,16 +281,16 @@ function buildGoreTexture(bright, appearance) {
     const cols = bright ? base.cols.map((c) => lighten(c, 0.25)) : base.cols;
     for (let i = 0; i < GORES; i++) {
       ctx.fillStyle = app.soloFill ? cols[0] : cols[i % 2];
-      ctx.fillRect(i * w, 0, w, 64);
+      ctx.fillRect(i * w, 0, w, cv.height);
       if (tape !== 'transparent') {
         ctx.fillStyle = seam;
-        ctx.fillRect(i * w, 0, 2, 64);
+        ctx.fillRect(i * w, 0, 2, cv.height);
       }
     }
   } else {
     // 複数色: パターンに従ってゴア×高さを塗り分ける(各色は代表色uiを使用)
     const filled = palettes.map((p) => (bright ? lighten(p.ui, 0.25) : p.ui));
-    const rows = 64;
+    const rows = cv.height;
     // サファイアのように、実際の球皮パネル数(GORES)とは別に柄自体の見た目の
     // 分割を細かくしたいパターンは fineSlices ヒントに従う。さらに alignSeams
     // 指定があれば継ぎ目テープもその分割に合わせて引く(市松は1マス=1ゴアなので、
@@ -295,16 +298,39 @@ function buildGoreTexture(bright, appearance) {
     const patDef = resolvePattern(app);
     const slices = (patDef && patDef.fineSlices) || GORES;
     const fine = slices !== GORES;
-    if (patDef && patDef.subCell) {
-      // 三角マス目のように同じマスの中でも横位置で色が変わる柄は、fineSlices
-      // 単位(マス1つにつき1回)だと対角線が潰れて見えるため、ピクセル単位で
-      // 連続的にgvを変えてサンプリングする
-      for (let x = 0; x < 512; x++) {
-        const gv = ((x + 0.5) / 512) * GORES;
-        for (let y = 0; y < rows; y++) {
-          const v = (y + 0.5) / rows;
-          ctx.fillStyle = filled[colorSlotAt(app, gv, v)];
-          ctx.fillRect(x, y, 1, 1);
+    if (patDef && patDef.subCell && patDef.rows) {
+      // 三角マス目はセルを対角線で割った2枚の三角形として直接描画する。
+      // ピクセル単位で最近傍の色を拾う方式だと、マス目の解像度なりに
+      // 対角線が階段状に見えてしまうため、キャンバスの多角形塗りつぶし
+      // (アンチエイリアス込み)で厳密な直線として描く
+      const S = patDef.slices;
+      const R = patDef.rows.length;
+      const period = patDef.rows[0].length;
+      const cw = 512 / S;
+      for (let r = 0; r < R; r++) {
+        const row = patDef.rows[r];
+        // rows[0]が最下段(裾側)・rows[R-1]が最上段(頂点側)という並びなので、
+        // キャンバス上(y=0が頂点側)には逆順で対応させる
+        const y0 = (R - r - 1) / R * rows;
+        const y1 = (R - r) / R * rows;
+        for (let k = 0; k < S; k++) {
+          const cell = row[k % period];
+          const x0 = k * cw;
+          const x1 = (k + 1) * cw;
+          const colA = filled[Math.min(filled.length - 1, cell.a)];
+          const colB = filled[Math.min(filled.length - 1, cell.b)];
+          // マス全体をまずb色でfillRect(他の柄と同じ塗り方なので継ぎ目が出ない)
+          // し、その上からa側の三角形だけ重ねて塗る。アンチエイリアスが掛かる
+          // 境界を対角線1本だけに絞ることで、マス目の外枠に余計な継ぎ目が
+          // 出ないようにする
+          ctx.fillStyle = colB;
+          ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+          ctx.beginPath();
+          if (cell.dir === 0) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); ctx.lineTo(x1, y1); }
+          else { ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(x0, y1); }
+          ctx.closePath();
+          ctx.fillStyle = colA;
+          ctx.fill();
         }
       }
     } else {
@@ -325,7 +351,7 @@ function buildGoreTexture(bright, appearance) {
       const seamW = 512 / seams;
       for (let i = 0; i < seams; i++) {
         ctx.fillStyle = seam;
-        ctx.fillRect(Math.round(i * seamW), 0, 2, 64);
+        ctx.fillRect(Math.round(i * seamW), 0, 2, cv.height);
       }
     }
   }
