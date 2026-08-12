@@ -103,8 +103,8 @@
   .balloon-kernel-row { margin-bottom: 6px; }
   .balloon-kernel-opts { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
   .balloon-kernel-opts .mp-btn { padding: 2px 7px; font-size: 12px; }
-  /* 展開図から取り込んだ柄を選んでいるときの注記(柄ボタンには並ばないため) */
-  #balloon-gridnote {
+  /* 展開図(マス目・三角マス目)から取り込んだ柄を選んでいるときの注記(柄ボタンには並ばないため) */
+  #balloon-gridnote, #balloon-trigridnote {
     margin: 0 0 10px; padding: 7px 9px; border: 1px dashed #345a7a; border-radius: 4px;
     background: rgba(13, 22, 32, 0.6); font-size: 12px; color: #9ecfff;
   }
@@ -475,6 +475,7 @@
     <div class="balloon-pattern-row" id="balloon-pattern-row"></div>
     <div id="balloon-kernel" style="display:none"></div>
     <div id="balloon-gridnote" style="display:none"></div>
+    <div id="balloon-trigridnote" style="display:none"></div>
     <div class="b-sub" data-i18n="balloon.colorCountLabel">色数</div>
     <div class="balloon-count-row" id="balloon-count-row"></div>
     <div class="balloon-count-row" id="balloon-solofill-row" style="display:none"></div>

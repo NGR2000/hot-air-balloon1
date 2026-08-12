@@ -268,6 +268,8 @@ function sameKernelAsCache(k) {
 // {colorIndex, fineSlices, alignSeams, skirtUsesTopColor} という同じ形が返る
 let gridCacheSrc = null;
 let gridCacheValue = null;
+let triGridCacheSrc = null;
+let triGridCacheValue = null;
 
 export function resolvePattern(appearance) {
   const app = appearance || DEFAULT_APPEARANCE;
@@ -278,6 +280,13 @@ export function resolvePattern(appearance) {
     gridCacheSrc = app.grid;
     gridCacheValue = makeGridPattern(GRID_PATTERN, g.slices, g.rows);
     return gridCacheValue;
+  }
+  if (app.pattern === TRI_GRID_PATTERN) {
+    if (app.triGrid === triGridCacheSrc && triGridCacheValue) return triGridCacheValue;
+    const g = clampTriGrid(app.triGrid);
+    triGridCacheSrc = app.triGrid;
+    triGridCacheValue = makeTriGridPattern(TRI_GRID_PATTERN, g.slices, g.rows);
+    return triGridCacheValue;
   }
   if (app.pattern !== CUSTOM_PATTERN) return PATTERNS[app.pattern] || PATTERNS.alt;
   const k = app.kernel || DEFAULT_KERNEL;
@@ -365,6 +374,99 @@ function clampGrid(grid) {
 }
 
 // ===========================================================================
+// 三角マス目階(第4段階): 1マスを対角線で2色に割る柄
+// ===========================================================================
+// 実機には、四角いマス目1枚をさらに対角線で2枚の三角パネルに割って配色する機体が
+// ある(Ultramagic MV-65等)。makeGridPattern()の1マス1色では表せないため、
+// 別の柄種として追加する(既存のmakeGridPattern()・GRID_PATTERN・v0/v1/v2の
+// 符号化は一切変更しない。これは全く別のパターン種別として並存させる)。
+//
+// 1マスは { a, b, dir } を持つ:
+//   dir=0: マスを左上⇄右下の対角線("\")で割る。aが左下側(◣)、bが右上側(◥)
+//   dir=1: マスを左下⇄右上の対角線("/")で割る。aが左上側(◤)、bが右下側(◢)
+// (a/bは色スロット番号。makeGridPattern()と同じくパレット番号ではない)
+export const TRI_GRID_PATTERN = 'triGrid';
+
+function clampTriCell(cell) {
+  const c = cell || {};
+  const a = Number.isInteger(c.a) && c.a >= 0 ? Math.min(c.a, MAX_COLORS - 1) : 0;
+  const b = Number.isInteger(c.b) && c.b >= 0 ? Math.min(c.b, MAX_COLORS - 1) : 0;
+  return { a, b, dir: c.dir === 1 ? 1 : 0 };
+}
+
+function clampTriGrid(grid) {
+  const src = grid || {};
+  const slices = KERNEL_SLICES.includes(src.slices) ? src.slices : 24;
+  const blank = { a: 0, b: 0, dir: 0 };
+  const rawRows = Array.isArray(src.rows) && src.rows.length ? src.rows : [[blank]];
+  const rows = rawRows.slice(0, GRID_MAX_ROWS)
+    .map((row) => (Array.isArray(row) && row.length ? row : [blank])
+      .slice(0, slices)
+      .map(clampTriCell));
+  const period = Math.max(1, Math.min(...rows.map((r) => r.length)));
+  return { slices, rows: rows.map((r) => r.slice(0, period)) };
+}
+
+// 三角マス目の柄を作る。makeGridPattern()と対になる関数で、返す形({colorIndex,
+// fineSlices, alignSeams, skirtUsesTopColor})も同じなので、main.js側は
+// 1マス1色の柄と1マス2色(三角)の柄を基本的には区別せずに扱える。
+// ただしsubCell:trueだけは追加で見る必要がある(下記参照)
+export function makeTriGridPattern(id, slices, rows, opts) {
+  const S = slices;
+  const R = rows.length;
+  const period = rows[0].length;
+  const o = opts || {};
+  return {
+    id,
+    slices: S,
+    rows,
+    fineSlices: S,
+    alignSeams: S !== GORES,
+    skirtUsesTopColor: o.skirtUsesTopColor !== false,
+    // 1マス1色の柄はfineSlices単位(マス1つにつき1回)のサンプリングで足りるが、
+    // 三角マス目は同じマスの中でも横位置(対角線のどちら側か)で色が変わるため、
+    // それより細かい解像度でサンプリングしないと対角線が潰れて見えてしまう。
+    // buildGoreTexture()側がこのフラグを見て、この柄のときだけ密に(ピクセル
+    // 単位で)サンプリングする
+    subCell: true,
+    colorIndex: (g, v, n) => {
+      if (n <= 1) return 0;
+      // マス目の「どのマスか」だけでなく、マスの中の位置(lu, lv ∈ [0,1))も要る
+      // (対角線のどちら側にいるかを見るため)。lu=0が列の左端・lv=0が段の下端
+      const gx = (mod(g, GORES) / GORES) * S;
+      const colFloor = Math.floor(gx);
+      const lu = gx - colFloor;
+      const c = mod(colFloor, period);
+      const ry = (1 - v) * R;
+      const ryClamped = Math.min(R - 1e-9, Math.max(0, ry));
+      const r = Math.floor(ryClamped);
+      const lv = ryClamped - r;
+      const cell = rows[r][c];
+      // dir=0: lu+lv<1 側(左下, ◣)がa。dir=1: lv>lu 側(左上, ◤)がa
+      const sideA = cell.dir === 0 ? (lu + lv < 1) : (lv > lu);
+      return Math.min(n - 1, sideA ? cell.a : cell.b);
+    },
+  };
+}
+
+// horizontalPeriod()の三角マス目版。セル(a,b,dir)がすべて一致するかで比較する
+function horizontalPeriodTri(rows, slices) {
+  const R = rows.length;
+  const sameCell = (x, y) => x.a === y.a && x.b === y.b && x.dir === y.dir;
+  for (let p = 1; p <= slices; p++) {
+    if (slices % p) continue;
+    let ok = true;
+    for (let r = 0; r < R && ok; r++) {
+      for (let c = 0; c < slices; c++) {
+        if (!sameCell(rows[r][mod(c, rows[r].length)], rows[r][mod(c + p, rows[r].length)])) { ok = false; break; }
+      }
+    }
+    if (ok) return p;
+  }
+  return slices;
+}
+
+// ===========================================================================
 // 共有コードの符号化
 // ===========================================================================
 // 形式は2つあり、decodeAppearance()が先頭の文字で見分ける:
@@ -388,6 +490,10 @@ const V2_PREFIX = 'H'; // マス目をそのまま載せる形式。v0/v1とは�
 // その場合は実装へプリセットとして組み込む道になる。
 // v0(6文字)・v1(最長20文字)には影響しない(サーバー側の受け入れ上限と同じ値)
 export const MAX_CODE_LENGTH = 512;
+// v3(三角マス目)。1マスにつきv2の2倍強(色2つ+対角線1bit)を持つため、同じマス目
+// サイズならv2よりおよそ2倍長くなる。24列×13段・4色前後の実機相当ならヘッダ込みで
+// 400字程度に収まる(検証済み)。MAX_CODE_LENGTHはv2と共用でよい
+const V3_PREFIX = 'J'; // v1('G')・v2('H')と衝突しないBase32の次の未使用文字
 
 function clampColorIndex(i) {
   return Number.isInteger(i) && i >= 0 && i < BALLOON_COLORS.length ? i : 0;
@@ -397,13 +503,15 @@ function clampAppearance(app) {
   const src = app || {};
   const isCustom = src.pattern === CUSTOM_PATTERN;
   const isGrid = src.pattern === GRID_PATTERN;
-  const pattern = isCustom || isGrid || PATTERN_IDS.includes(src.pattern) ? src.pattern : 'alt';
+  const isTriGrid = src.pattern === TRI_GRID_PATTERN;
+  const pattern = isCustom || isGrid || isTriGrid || PATTERN_IDS.includes(src.pattern) ? src.pattern : 'alt';
   const rawColors = Array.isArray(src.colors) && src.colors.length ? src.colors : [0];
   const colors = rawColors.slice(0, MAX_COLORS).map(clampColorIndex);
   const tape = TAPE_COLORS.includes(src.tape) ? src.tape : 'brown';
   const out = { pattern, colors, soloFill: !!src.soloFill, tape };
   if (isCustom) out.kernel = clampKernel(src.kernel);
   if (isGrid) out.grid = clampGrid(src.grid);
+  if (isTriGrid) out.triGrid = clampTriGrid(src.triGrid);
   return out;
 }
 
@@ -646,12 +754,99 @@ function decodeV2(code) {
   };
 }
 
+// v3: v2と同じ並びだが、1マスにつき [a bpc bit] + [b bpc bit] + [dir 1bit] を持つ
+// (v2は1マス1色なのでbpc bitのみ)。ヘッダの並びはv2と揃えてあるので、v2のコードを
+// v3として読んでも(先頭1文字を除けば)壊れた値として弾かれるだけで済む
+function encodeV3(app) {
+  const g = app.triGrid;
+  const S = g.slices;
+  const R = g.rows.length;
+  const period = horizontalPeriodTri(g.rows, S);
+  const n = app.colors.length;
+  const bpc = bitsPerCell(n);
+
+  const bits = [];
+  pushBits(bits, KERNEL_SLICES.indexOf(S), 3);
+  pushBits(bits, R - 1, 5);
+  pushBits(bits, period, 6);
+  pushBits(bits, app.soloFill ? 1 : 0, 1);
+  pushBits(bits, TAPE_COLORS.indexOf(app.tape), 2);
+  pushBits(bits, n - 1, 4);
+  for (const c of app.colors) pushBits(bits, c, 4);
+  if (bpc > 0) {
+    for (let r = 0; r < R; r++) {
+      const row = g.rows[r];
+      for (let c = 0; c < period; c++) {
+        const cell = row[mod(c, row.length)];
+        pushBits(bits, Math.min(n - 1, cell.a), bpc);
+        pushBits(bits, Math.min(n - 1, cell.b), bpc);
+        pushBits(bits, cell.dir, 1);
+      }
+    }
+  }
+  return V3_PREFIX + bitsToBase32(bits);
+}
+
+function decodeV3(code) {
+  const bits = base32ToBits(code.slice(V3_PREFIX.length));
+  if (!bits) return null;
+  let used = 0;
+  const reader = makeBitReader(bits);
+  const read = (n) => { const v = reader(n); if (v !== null) used += n; return v; };
+
+  const sIdx = read(3);
+  const rMinus1 = read(5);
+  const rawPeriod = read(6);
+  const soloFill = read(1);
+  const tapeIdx = read(2);
+  const nMinus1 = read(4);
+  if (nMinus1 === null) return null;
+
+  const S = KERNEL_SLICES[sIdx];
+  const R = rMinus1 + 1;
+  const period = rawPeriod >= 1 && rawPeriod <= S && S % rawPeriod === 0 ? rawPeriod : S;
+
+  const n = nMinus1 + 1;
+  const colors = [];
+  for (let i = 0; i < n; i++) {
+    const c = read(4);
+    if (c === null) return null;
+    colors.push(clampColorIndex(c));
+  }
+  const bpc = bitsPerCell(n);
+  const rows = [];
+  for (let r = 0; r < R; r++) {
+    const row = [];
+    for (let c = 0; c < period; c++) {
+      if (bpc === 0) { row.push({ a: 0, b: 0, dir: 0 }); continue; }
+      const a = read(bpc);
+      if (a === null) return null;
+      const b = read(bpc);
+      if (b === null) return null;
+      const dir = read(1);
+      if (dir === null) return null;
+      row.push({ a: Math.min(n - 1, a), b: Math.min(n - 1, b), dir: dir ? 1 : 0 });
+    }
+    rows.push(row);
+  }
+  if (bits.length - used >= 5) return null;
+  return {
+    pattern: TRI_GRID_PATTERN,
+    colors,
+    soloFill: !!soloFill,
+    tape: TAPE_COLORS[tapeIdx] || 'brown',
+    triGrid: { slices: S, rows },
+  };
+}
+
 // 見た目を共有コードへエンコードする。共有URLやテキストでの再入力用。
 // 現行の4パターン・4色以内なら今まで通りの16進6桁、カスタム柄(数式)や5色目からは
-// 'G'で始まる可変長、マス目をそのまま持つ柄は'H'で始まる長いコードになる
+// 'G'で始まる可変長、マス目をそのまま持つ柄は'H'で始まる長いコード、
+// マスを対角線で2色に割る三角柄は'J'で始まる長いコードになる
 export function encodeAppearance(appearance) {
   const app = clampAppearance(appearance);
   if (app.pattern === GRID_PATTERN) return encodeV2(app);
+  if (app.pattern === TRI_GRID_PATTERN) return encodeV3(app);
   return fitsV0(app) ? encodeV0(app) : encodeV1(app);
 }
 
@@ -665,6 +860,7 @@ function parseCode(code) {
   if (s.length > 1 && !/^[0-9A-Z]+$/.test(s)) return null;
   if (s[0] === V1_PREFIX) return decodeV1(s);
   if (s[0] === V2_PREFIX) return decodeV2(s);
+  if (s[0] === V3_PREFIX) return decodeV3(s);
   return null;
 }
 

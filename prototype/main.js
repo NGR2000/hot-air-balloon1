@@ -9,7 +9,7 @@ import { Room, randomRoomCode, BALLOON_COLORS } from './net.js';
 import {
   GORES, MAX_COLORS, DEFAULT_APPEARANCE, PATTERN_IDS, TAPE_COLORS,
   encodeAppearance, decodeAppearance, colorSlotAt, resolvePattern, isValidAppearanceCode,
-  CUSTOM_PATTERN, GRID_PATTERN, DEFAULT_KERNEL,
+  CUSTOM_PATTERN, GRID_PATTERN, TRI_GRID_PATTERN, DEFAULT_KERNEL,
   KERNEL_SLICES, KERNEL_KG_VALUES, KERNEL_MAPPINGS, KERNEL_WAVE_PERIODS, KERNEL_KV_MAX,
 } from './balloon-appearance.js';
 
@@ -292,15 +292,29 @@ function buildGoreTexture(bright, appearance) {
     const patDef = resolvePattern(app);
     const slices = (patDef && patDef.fineSlices) || GORES;
     const fine = slices !== GORES;
-    const sw = 512 / slices;
-    for (let k = 0; k < slices; k++) {
-      const gv = fine ? (k + 0.5) * GORES / slices : k;
-      const x0 = Math.round(k * sw);
-      const x1 = Math.round((k + 1) * sw);
-      for (let y = 0; y < rows; y++) {
-        const v = (y + 0.5) / rows;
-        ctx.fillStyle = filled[colorSlotAt(app, gv, v)];
-        ctx.fillRect(x0, y, x1 - x0, 1);
+    if (patDef && patDef.subCell) {
+      // 三角マス目のように同じマスの中でも横位置で色が変わる柄は、fineSlices
+      // 単位(マス1つにつき1回)だと対角線が潰れて見えるため、ピクセル単位で
+      // 連続的にgvを変えてサンプリングする
+      for (let x = 0; x < 512; x++) {
+        const gv = ((x + 0.5) / 512) * GORES;
+        for (let y = 0; y < rows; y++) {
+          const v = (y + 0.5) / rows;
+          ctx.fillStyle = filled[colorSlotAt(app, gv, v)];
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    } else {
+      const sw = 512 / slices;
+      for (let k = 0; k < slices; k++) {
+        const gv = fine ? (k + 0.5) * GORES / slices : k;
+        const x0 = Math.round(k * sw);
+        const x1 = Math.round((k + 1) * sw);
+        for (let y = 0; y < rows; y++) {
+          const v = (y + 0.5) / rows;
+          ctx.fillStyle = filled[colorSlotAt(app, gv, v)];
+          ctx.fillRect(x0, y, x1 - x0, 1);
+        }
       }
     }
     if (tape !== 'transparent') {
@@ -1017,6 +1031,7 @@ function openBalloonModal() {
     soloFill: myAppearance.soloFill, tape: myAppearance.tape,
     kernel: { ...DEFAULT_KERNEL, ...(myAppearance.kernel || {}) },
     grid: myAppearance.grid || null, // 展開図から取り込んだ柄(コード貼り付けで入る)
+    triGrid: myAppearance.triGrid || null, // 三角マス目から取り込んだ柄(同上)
   };
   document.getElementById('balloon-code-msg').textContent = '';
   startPreviewAnim(); // renderBalloonModal()がプレビューへ適用する前にpreviewBalloonを用意しておく
@@ -1094,6 +1109,7 @@ function renderBalloonModal() {
 
   renderKernelSection();
   renderGridNote();
+  renderTriGridNote();
 
   const countRow = document.getElementById('balloon-count-row');
   const n = balloonDraft.colors.length;
@@ -1177,6 +1193,20 @@ function renderGridNote() {
   box.textContent = t('balloon.gridNote', { s: g.slices, r: g.rows.length });
 }
 
+// 三角マス目(1マスを対角線で2色に割る柄。コード貼り付けで入る)を選んでいる
+// ときの表示。renderGridNote()と同じ考え方
+function renderTriGridNote() {
+  const box = document.getElementById('balloon-trigridnote');
+  if (balloonDraft.pattern !== TRI_GRID_PATTERN || !balloonDraft.triGrid) {
+    box.style.display = 'none';
+    box.textContent = '';
+    return;
+  }
+  const g = balloonDraft.triGrid;
+  box.style.display = '';
+  box.textContent = t('balloon.triGridNote', { s: g.slices, r: g.rows.length });
+}
+
 // 編集中の下書きから、実際に保存・共有する見た目を作る。カーネルのパラメータや
 // 展開図のマス目は、その柄を選んでいるときだけ載せる
 // (プリセットに余計なキーが付かないようにする)
@@ -1187,6 +1217,7 @@ function appearanceFromDraft() {
   };
   if (balloonDraft.pattern === CUSTOM_PATTERN) app.kernel = { ...balloonDraft.kernel };
   if (balloonDraft.pattern === GRID_PATTERN && balloonDraft.grid) app.grid = balloonDraft.grid;
+  if (balloonDraft.pattern === TRI_GRID_PATTERN && balloonDraft.triGrid) app.triGrid = balloonDraft.triGrid;
   return app;
 }
 
@@ -1246,7 +1277,7 @@ function initBalloonModalUI() {
     }
     // カスタム柄以外のコードを貼られてもパラメータ欄が空にならないよう、
     // 編集中のカーネル設定は残したまま上書きする
-    balloonDraft = { kernel: { ...balloonDraft.kernel }, grid: null, ...decodeAppearance(raw) };
+    balloonDraft = { kernel: { ...balloonDraft.kernel }, grid: null, triGrid: null, ...decodeAppearance(raw) };
     document.getElementById('balloon-code-msg').textContent = '';
     renderBalloonModal();
   });
