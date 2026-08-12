@@ -815,3 +815,98 @@ test('v0/v1/v2はv3を足しても一切変わらない', () => {
   assert.equal(v2[0], 'H');
   assert.equal(decodeAppearance(v2).pattern, GRID_PATTERN);
 });
+
+// ---------------------------------------------------------------------------
+// v4: v3の圧縮版(ベタ塗りマスは色を1つだけ持つ)。5色以上・段数が多い柄で
+// 512文字を超えてしまう実例(実機7色・24列×15段)がきっかけで追加した
+// ---------------------------------------------------------------------------
+
+test('v4: 対角線もベタ塗りも混在する柄がv3より短く、塗り分けも完全一致する', () => {
+  // わざと「対角線のマス」と「ベタ塗り(a===b)のマス」を混ぜる
+  let seed = 3;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const rows = Array.from({ length: 15 }, () => Array.from({ length: 24 }, () => {
+    if (rand(2) === 0) { const v = rand(7); return { a: v, b: v, dir: rand(2) }; }
+    return { a: rand(7), b: rand(7), dir: rand(2) };
+  }));
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: [0, 1, 2, 3, 4, 5, 6], soloFill: false, tape: 'brown',
+    triGrid: { slices: 24, rows },
+  };
+  const code = encodeAppearance(app);
+  assert.equal(code[0], 'K', 'ベタ塗りを含む柄はv4が選ばれるはず');
+  assert.ok(code.length <= MAX_CODE_LENGTH);
+  const back = decodeAppearance(code);
+  assert.equal(back.pattern, TRI_GRID_PATTERN);
+  assert.deepEqual(back.colors, app.colors);
+  assert.ok(rendersSame(app, back, 24), '塗り分けがv3と変わってしまった');
+});
+
+test('v4: 全マス対角線(ベタ塗りなし)ではv3の方が短いか同じなので、v3のままになる', () => {
+  let seed = 9;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const rows = Array.from({ length: 4 }, () => Array.from({ length: 8 }, () => {
+    const a = rand(3), b = (a + 1 + rand(2)) % 3; // aとbが必ず異なるようにする
+    return { a, b, dir: rand(2) };
+  }));
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: [0, 1, 2], soloFill: false, tape: 'brown',
+    triGrid: { slices: 8, rows },
+  };
+  const code = encodeAppearance(app);
+  assert.equal(code[0], 'J', '対角線だらけの柄はv4にすると旗ビットぶん長くなるのでv3のままのはず');
+  const back = decodeAppearance(code);
+  assert.ok(rendersSame(app, back, 8));
+});
+
+test('v4: 実機相当(7色・24列×15段)で512文字を超えていたコードが収まるようになる', () => {
+  // ベタ塗りマスを多めに混ぜた実例相当のデータ(実際の不具合報告と同じ形)
+  let seed = 21;
+  const rand = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
+  const rows = Array.from({ length: 15 }, () => Array.from({ length: 24 }, () => {
+    if (rand(3) < 1) { const v = rand(7); return { a: v, b: v, dir: 0 }; }
+    return { a: rand(7), b: rand(7), dir: rand(2) };
+  }));
+  const app = {
+    pattern: TRI_GRID_PATTERN, colors: [0, 1, 2, 3, 4, 5, 6], soloFill: false, tape: 'brown',
+    triGrid: { slices: 24, rows },
+  };
+  const code = encodeAppearance(app);
+  assert.ok(code.length <= MAX_CODE_LENGTH, `${code.length}文字は上限超え`);
+  const back = decodeAppearance(code);
+  assert.ok(rendersSame(app, back, 24));
+});
+
+test('v4: 壊れたコードは既定値へフォールバックする', () => {
+  for (const bad of ['K', 'K!!!', 'KRT', `K${'Z'.repeat(600)}`]) {
+    assert.equal(isValidAppearanceCode(bad), false, `受理してはいけない: ${bad}`);
+    assert.deepEqual(decodeAppearance(bad), { ...DEFAULT_APPEARANCE, colors: [0] });
+  }
+});
+
+test('v0/v1/v2/v3はv4を足しても一切変わらない', () => {
+  assert.equal(encodeAppearance(DEFAULT_APPEARANCE), '000000');
+  assert.equal(encodeAppearance({ pattern: 'sapphire', colors: [0, 1, 2, 3], soloFill: false, tape: 'brown' }), '06420F');
+  const v1 = encodeAppearance({
+    pattern: CUSTOM_PATTERN, colors: [0, 1, 2, 3], soloFill: false, tape: 'brown',
+    kernel: { ...DEFAULT_KERNEL },
+  });
+  assert.equal(v1[0], 'G');
+  const v2 = encodeAppearance({
+    pattern: GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown',
+    grid: { slices: 24, rows: [[0, 1, 2, 3]] },
+  });
+  assert.equal(v2[0], 'H');
+  // v3当時に書いたテスト(このファイル上部)がdecodeV3/encodeV3を一切変更していない
+  // まま全てpassし続けていること自体が、v4追加による回帰が無いことの証拠になる
+  const rows = [
+    [{ a: 3, b: 2, dir: 0 }, { a: 0, b: 3, dir: 1 }, { a: 2, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 },
+      { a: 3, b: 0, dir: 0 }, { a: 2, b: 3, dir: 1 }, { a: 0, b: 2, dir: 0 }, { a: 3, b: 3, dir: 1 }],
+    [{ a: 0, b: 3, dir: 1 }, { a: 2, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 }, { a: 3, b: 2, dir: 0 },
+      { a: 2, b: 0, dir: 1 }, { a: 3, b: 3, dir: 0 }, { a: 3, b: 0, dir: 1 }, { a: 0, b: 2, dir: 0 }],
+  ];
+  const v3App = { pattern: TRI_GRID_PATTERN, colors: [8, 6, 1, 12], soloFill: false, tape: 'brown', triGrid: { slices: 8, rows } };
+  const v3 = encodeAppearance(v3App);
+  assert.equal(v3[0], 'J', 'この柄はベタ塗りが少ないのでv3のままのはず(v4追加で変わってしまった)');
+  assert.ok(rendersSame(v3App, decodeAppearance(v3), 8));
+});
