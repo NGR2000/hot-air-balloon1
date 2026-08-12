@@ -839,14 +839,132 @@ function decodeV3(code) {
   };
 }
 
+// v4: v3の圧縮版。三角マス目は実機でも「対角線で塗り分けた場所」より
+// 「1色でベタ塗りの場所」のほうが多いことが珍しくない(裾のノイズ・
+// 単色の帯など)。1マスにつき固定7bit前後を払うv3では、a===b(実質ベタ塗り、
+// dirの値に意味が無い)のマスでも同じbit数を払わされてしまう。
+// v4はマスごとに1bitの旗を先頭に立て、ベタ塗りのマスは色1つぶんだけで
+// 済ませる:
+//   [1bit 旗=1(ベタ塗り)] + [bpc bit 色]                      … 旗+bpc bit
+//   [1bit 旗=0(対角線あり)] + [bpc bit a] + [bpc bit b] + [1bit dir] … 旗+2bpc+1 bit
+// ベタ塗りが多い柄ほど短くなる(逆に対角線だらけの柄ではv3よりわずかに
+// 長くなる)。v3('J')の符号化・復号は一切変更していないので、既に共有された
+// v3コードはそのまま読める。encodeAppearance()はv3・v4の両方を作って
+// 短い方を採用するので、三角マス目を選んだ人は常に一番短いコードを得る
+const V4_PREFIX = 'K'; // v1('G')・v2('H')・v3('J')と衝突しないBase32の次の未使用文字
+
+function encodeV4(app) {
+  const g = app.triGrid;
+  const S = g.slices;
+  const R = g.rows.length;
+  const period = horizontalPeriodTri(g.rows, S);
+  const n = app.colors.length;
+  const bpc = bitsPerCell(n);
+
+  const bits = [];
+  pushBits(bits, KERNEL_SLICES.indexOf(S), 3);
+  pushBits(bits, R - 1, 5);
+  pushBits(bits, period, 6);
+  pushBits(bits, app.soloFill ? 1 : 0, 1);
+  pushBits(bits, TAPE_COLORS.indexOf(app.tape), 2);
+  pushBits(bits, n - 1, 4);
+  for (const c of app.colors) pushBits(bits, c, 4);
+  if (bpc > 0) {
+    for (let r = 0; r < R; r++) {
+      const row = g.rows[r];
+      for (let c = 0; c < period; c++) {
+        const cell = row[mod(c, row.length)];
+        const a = Math.min(n - 1, cell.a);
+        const b = Math.min(n - 1, cell.b);
+        if (a === b) {
+          pushBits(bits, 1, 1);
+          pushBits(bits, a, bpc);
+        } else {
+          pushBits(bits, 0, 1);
+          pushBits(bits, a, bpc);
+          pushBits(bits, b, bpc);
+          pushBits(bits, cell.dir, 1);
+        }
+      }
+    }
+  }
+  return V4_PREFIX + bitsToBase32(bits);
+}
+
+function decodeV4(code) {
+  const bits = base32ToBits(code.slice(V4_PREFIX.length));
+  if (!bits) return null;
+  let used = 0;
+  const reader = makeBitReader(bits);
+  const read = (n) => { const v = reader(n); if (v !== null) used += n; return v; };
+
+  const sIdx = read(3);
+  const rMinus1 = read(5);
+  const rawPeriod = read(6);
+  const soloFill = read(1);
+  const tapeIdx = read(2);
+  const nMinus1 = read(4);
+  if (nMinus1 === null) return null;
+
+  const S = KERNEL_SLICES[sIdx];
+  const R = rMinus1 + 1;
+  const period = rawPeriod >= 1 && rawPeriod <= S && S % rawPeriod === 0 ? rawPeriod : S;
+
+  const n = nMinus1 + 1;
+  const colors = [];
+  for (let i = 0; i < n; i++) {
+    const c = read(4);
+    if (c === null) return null;
+    colors.push(clampColorIndex(c));
+  }
+  const bpc = bitsPerCell(n);
+  const rows = [];
+  for (let r = 0; r < R; r++) {
+    const row = [];
+    for (let c = 0; c < period; c++) {
+      if (bpc === 0) { row.push({ a: 0, b: 0, dir: 0 }); continue; }
+      const solid = read(1);
+      if (solid === null) return null;
+      if (solid) {
+        const v = read(bpc);
+        if (v === null) return null;
+        const clamped = Math.min(n - 1, v);
+        row.push({ a: clamped, b: clamped, dir: 0 });
+      } else {
+        const a = read(bpc);
+        if (a === null) return null;
+        const b = read(bpc);
+        if (b === null) return null;
+        const dir = read(1);
+        if (dir === null) return null;
+        row.push({ a: Math.min(n - 1, a), b: Math.min(n - 1, b), dir: dir ? 1 : 0 });
+      }
+    }
+    rows.push(row);
+  }
+  if (bits.length - used >= 5) return null;
+  return {
+    pattern: TRI_GRID_PATTERN,
+    colors,
+    soloFill: !!soloFill,
+    tape: TAPE_COLORS[tapeIdx] || 'brown',
+    triGrid: { slices: S, rows },
+  };
+}
+
 // 見た目を共有コードへエンコードする。共有URLやテキストでの再入力用。
 // 現行の4パターン・4色以内なら今まで通りの16進6桁、カスタム柄(数式)や5色目からは
 // 'G'で始まる可変長、マス目をそのまま持つ柄は'H'で始まる長いコード、
-// マスを対角線で2色に割る三角柄は'J'で始まる長いコードになる
+// マスを対角線で2色に割る三角柄は'J'または'K'で始まる長いコードになる
+// (三角柄はv3・v4の両方を作って短い方を採用する)
 export function encodeAppearance(appearance) {
   const app = clampAppearance(appearance);
   if (app.pattern === GRID_PATTERN) return encodeV2(app);
-  if (app.pattern === TRI_GRID_PATTERN) return encodeV3(app);
+  if (app.pattern === TRI_GRID_PATTERN) {
+    const v3 = encodeV3(app);
+    const v4 = encodeV4(app);
+    return v4.length < v3.length ? v4 : v3;
+  }
   return fitsV0(app) ? encodeV0(app) : encodeV1(app);
 }
 
@@ -861,6 +979,7 @@ function parseCode(code) {
   if (s[0] === V1_PREFIX) return decodeV1(s);
   if (s[0] === V2_PREFIX) return decodeV2(s);
   if (s[0] === V3_PREFIX) return decodeV3(s);
+  if (s[0] === V4_PREFIX) return decodeV4(s);
   return null;
 }
 
