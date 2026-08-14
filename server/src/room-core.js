@@ -148,6 +148,12 @@ export class RoomCore {
       ghost.connected = true;
       ghost.disconnectedAt = null;
       ghost.lastSeen = now;
+      // 再接続時に送られてきた最新のcolor/appearanceも反映する(反映しないと、初回参加時点の
+      // 見た目に固定されたまま、後から選び直した柄がずっと他の全員へ配られなくなる)
+      if (Number.isInteger(color) && color >= 0 && color < 16) ghost.color = color;
+      if (typeof appearance === 'string' && /^[0-9A-Za-z]{1,512}$/.test(appearance)) {
+        ghost.appearance = appearance.toUpperCase();
+      }
       const hello = {
         to: ghost.id,
         msg: {
