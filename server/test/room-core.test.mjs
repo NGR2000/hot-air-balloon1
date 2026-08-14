@@ -276,6 +276,24 @@ test('飛行中に切断→同名で再入室すると同じ機体に復帰で�
   assert.equal(rows[0].left, false);
 });
 
+test('飛行中の再入室では、新しく送られてきたcolor/appearanceで更新される(選び直した柄が固定されないように)', () => {
+  const { room, aid, t } = makeFlyingRoom();
+  assert.equal(room.players.get(aid).appearance, null); // 初回参加時はappearance未指定
+  room.leave(aid, t + 200);
+  const r = room.join('Alice', 9, false, t + 1000, 'ABCDEF');
+  assert.equal(r.reattach, true);
+  const p = room.players.get(aid);
+  assert.equal(p.color, 9);
+  assert.equal(p.appearance, 'ABCDEF');
+  assert.equal(msgs(r.events, 'hello')[0].msg.players.find((x) => x.id === aid).appearance, 'ABCDEF');
+  // 不正な値が送られてきても、既に持っている正常な値を消して上書きはしない
+  room.leave(aid, t + 2000);
+  const r2 = room.join('Alice', 99, false, t + 3000, 'not valid!!');
+  assert.equal(room.players.get(aid).color, 9, '範囲外のcolorでは上書きしない');
+  assert.equal(room.players.get(aid).appearance, 'ABCDEF', '不正なappearanceでは上書きしない');
+  void r2;
+});
+
 test('リザルト中に切断したホストも復帰でき、rematchを送れる', () => {
   const { room, aid, bid, t } = makeFlyingRoom();
   room.drop(aid, t); room.landed(aid, 5, t);
