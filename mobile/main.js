@@ -510,6 +510,9 @@ const BUILDINGS_KEY = 'balloon-buildings';
 let buildingsOn = localStorage.getItem(BUILDINGS_KEY) === 'on';
 let buildingsLayer = null;
 let buildingsLoading = false;
+// terrain(下でconst宣言、地形読み込み完了まで未初期化)への参照はロード完了後まで安全でないため、
+// ボタンがロード中にも操作できてしまうこの実装ではガードが要る
+let terrainReady = false;
 
 const buildingsBtn = document.getElementById('btn-buildings');
 const renderBuildingsBtn = () => {
@@ -524,6 +527,7 @@ buildingsBtn.addEventListener('click', async () => {
 });
 
 async function applyBuildingsVisibility() {
+  if (!terrainReady) return; // 地形読み込み完了後、末尾の呼び出しで改めて反映される
   if (!buildingsOn) {
     if (buildingsLayer) buildingsLayer.setVisible(false);
     return;
@@ -843,6 +847,7 @@ const loadEl = document.getElementById('load-progress');
 const terrain = await buildTerrain(AREA.lon, AREA.lat, TILE_RADIUS,
   (done, total) => { loadEl.textContent = `${done} / ${total}`; });
 scene.add(terrain.group);
+terrainReady = true;
 loadingEl.remove();
 
 // 前回セッションでトグルがONのまま保存されていた場合、ここで初回ロードする
