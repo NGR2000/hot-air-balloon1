@@ -262,9 +262,17 @@ export async function buildTerrain(centerLon, centerLat, radius, onProgress) {
     return { x: (t.x - c.x) * tileMeters, z: (t.y - c.y) * tileMeters };
   }
 
+  // 指定ワールド座標を含む地形タイルのエントリ({ tx, ty, mat, cx, cz, ... })を返す。
+  // 建物の屋根に地形と同じ航空写真テクスチャ(entry.mat)をそのまま流用するために使う
+  // (mat自体を共有するので、地形側のLOD昇格でテクスチャが差し替わると屋根にも自動反映される)
+  function getTileAt(x, z) {
+    const half = tileMeters / 2;
+    return tileEntries.find((t) => Math.abs(x - t.cx) <= half && Math.abs(z - t.cz) <= half) || null;
+  }
+
   const n = radius * 2 + 1;
   return {
-    group, getHeight, lonLatToWorld, tileMeters, updateDetail, requestDetail, requestUltra,
+    group, getHeight, lonLatToWorld, getTileAt, tileMeters, updateDetail, requestDetail, requestUltra,
     sizeMeters: tileMeters * n,
     // 2D地図(ブリーフィング)用: タイル範囲と世界座標での北西角
     map: {

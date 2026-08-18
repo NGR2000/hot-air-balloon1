@@ -1,4 +1,6 @@
-// 建物の3D表現(LOD1相当・単色の押し出しジオメトリ)。
+// 建物の3D表現(LOD1相当の押し出しジオメトリ)。壁は単色、屋根だけ地形と同じ
+// 航空写真テクスチャを貼る(terrain.getTileAt()でタイルのmaterialをそのまま共有
+// するため、地形側のLOD昇格・テクスチャ差し替えが屋根にも自動で反映される)。
 // データは PLATEAU(国交省・CC BY 4.0)/OSM Buildings のいずれかを、あらかじめ
 // tools/plateau-convert・tools/osm-buildings-convert で統一スキーマJSONに変換したものを使う:
 //   { source, license, generatedAt, buildings: [{ footprint: [[lon,lat],...], height }] }
@@ -7,7 +9,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-const MATERIAL = new THREE.MeshLambertMaterial({ color: 0xb8b0a4 });
+const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xb8b0a4 });
+// 屋根を地形の上面(タイルの単色フォールバック/写真キャップ)よりわずかに浮かせて、
+// 同じ高さのポリゴン同士のZファイティングを避ける
+const ROOF_RAISE = 0.03;
 
 function emptyLayer() {
   return { group: new THREE.Group(), count: 0, setVisible() {}, dispose() {} };
@@ -24,9 +29,8 @@ function signedArea(points) {
   return sum / 2;
 }
 
-// footprint(経緯度の配列)を1棟分のExtrudeGeometryに変換する。
-// 失敗(頂点不足など)時はnullを返す
-function buildOneGeometry(footprint, height, terrain) {
+// footprint(経緯度の配列)から1棟分の配置情報を作る。失敗(頂点不足・範囲外など)時はnullを返す
+function placeBuilding(footprint, height, terrain) {
   if (!Array.isArray(footprint) || footprint.length < 3) return null;
 
   const world = footprint.map(([lon, lat]) => terrain.lonLatToWorld(lon, lat));
@@ -45,18 +49,44 @@ function buildOneGeometry(footprint, height, terrain) {
   if (Math.abs(cx) > half || Math.abs(cz) > half) return null;
 
   // Shapeの(x,y)は (東西オフセット, -南北オフセット) に対応させる。
-  // ExtrudeGeometryをrotateX(-90°)で立てたときにワールドXZと向きが一致するようにするため
+  // rotateX(-90°)で立てたときにワールドXZと向きが一致するようにするため
   let pts2d = world.map((p) => [p.x - cx, -(p.z - cz)]);
-  if (signedArea(pts2d) < 0) pts2d = pts2d.reverse(); // ExtrudeGeometryはCCW前提
+  if (signedArea(pts2d) < 0) pts2d = pts2d.reverse(); // Shapeの前提はCCW
 
   const h = Number.isFinite(height) && height > 0 ? height : 6;
+  const groundY = terrain.getHeight(cx, cz);
+  return { pts2d, cx, cz, groundY, h };
+}
+
+function buildWallGeometry({ pts2d, cx, cz, groundY, h }) {
   const shape = new THREE.Shape(pts2d.map(([x, y]) => new THREE.Vector2(x, y)));
   const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
   geo.rotateX(-Math.PI / 2);
-
-  const groundY = terrain.getHeight(cx, cz);
   geo.translate(cx, groundY, cz);
   geo.deleteAttribute('uv');
+  return geo;
+}
+
+// 屋根の平面ジオメトリ。UVは地形タイルの写真テクスチャ空間(u, 1-v)に合わせて計算し、
+// tile.matをそのまま使い回せるようにする
+function buildRoofGeometry({ pts2d, cx, cz, groundY, h }, tile, tileMeters) {
+  const shape = new THREE.Shape(pts2d.map(([x, y]) => new THREE.Vector2(x, y)));
+  const geo = new THREE.ShapeGeometry(shape);
+
+  const pos = geo.attributes.position;
+  const uv = new Float32Array(pos.count * 2);
+  const tileX0 = tile.cx - tileMeters / 2;
+  const tileZ0 = tile.cz - tileMeters / 2;
+  for (let i = 0; i < pos.count; i++) {
+    const worldX = pos.getX(i) + cx;
+    const worldZ = cz - pos.getY(i); // pts2dのy = -(worldZ-cz) の逆変換
+    uv[i * 2] = (worldX - tileX0) / tileMeters;
+    uv[i * 2 + 1] = 1 - (worldZ - tileZ0) / tileMeters;
+  }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(cx, groundY + h + ROOF_RAISE, cz);
   return geo;
 }
 
@@ -74,33 +104,56 @@ export async function buildBuildings(areaId, terrain, onProgress) {
   }
 
   const list = Array.isArray(data?.buildings) ? data.buildings : [];
-  const geometries = [];
+  const wallGeometries = [];
+  const roofGroups = new Map(); // "tx_ty" -> { mat, geos: [] }
+  let count = 0;
   const total = list.length;
+
   for (let i = 0; i < list.length; i++) {
     try {
-      const geo = buildOneGeometry(list[i].footprint, list[i].height, terrain);
-      if (geo) geometries.push(geo);
+      const placement = placeBuilding(list[i].footprint, list[i].height, terrain);
+      if (placement) {
+        wallGeometries.push(buildWallGeometry(placement));
+        count++;
+
+        const tile = terrain.getTileAt ? terrain.getTileAt(placement.cx, placement.cz) : null;
+        if (tile) {
+          const key = `${tile.tx}_${tile.ty}`;
+          if (!roofGroups.has(key)) roofGroups.set(key, { mat: tile.mat, geos: [] });
+          roofGroups.get(key).geos.push(buildRoofGeometry(placement, tile, terrain.tileMeters));
+        }
+      }
     } catch {
       // 個々の建物データが壊れていても他の建物の描画は継続する
     }
     if (onProgress) onProgress(i + 1, total);
   }
 
-  if (geometries.length === 0) return emptyLayer();
+  if (wallGeometries.length === 0) return emptyLayer();
 
-  const merged = mergeGeometries(geometries, false);
-  for (const geo of geometries) geo.dispose();
-
-  const mesh = new THREE.Mesh(merged, MATERIAL);
   const group = new THREE.Group();
-  group.add(mesh);
+
+  const mergedWalls = mergeGeometries(wallGeometries, false);
+  for (const geo of wallGeometries) geo.dispose();
+  group.add(new THREE.Mesh(mergedWalls, WALL_MATERIAL));
+
+  // 屋根はタイル単位(=地形と同じ写真テクスチャを共有するmaterial単位)でまとめて1メッシュずつ追加
+  const roofMeshes = [];
+  for (const { mat, geos } of roofGroups.values()) {
+    const mergedRoof = mergeGeometries(geos, false);
+    for (const geo of geos) geo.dispose();
+    const mesh = new THREE.Mesh(mergedRoof, mat); // matは地形タイルの共有material(disposeしない)
+    roofMeshes.push(mesh);
+    group.add(mesh);
+  }
 
   return {
     group,
-    count: geometries.length,
+    count,
     setVisible(v) { group.visible = v; },
     dispose() {
-      merged.dispose();
+      mergedWalls.dispose();
+      for (const mesh of roofMeshes) mesh.geometry.dispose(); // materialは地形側が所有するため触らない
       group.clear();
     },
   };
