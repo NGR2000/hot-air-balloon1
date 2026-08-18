@@ -255,9 +255,16 @@ export async function buildTerrain(centerLon, centerLat, radius, onProgress) {
     }
   }
 
+  // 経緯度 → ワールド座標(m、東+/南+)。地形メッシュと同じ投影・原点で変換するため、
+  // 建物データ(buildings.js)を地形と完全に整合させたいときはこれを使う
+  function lonLatToWorld(lon, lat) {
+    const t = lonLatToTile(lon, lat, DEM_Z);
+    return { x: (t.x - c.x) * tileMeters, z: (t.y - c.y) * tileMeters };
+  }
+
   const n = radius * 2 + 1;
   return {
-    group, getHeight, tileMeters, updateDetail, requestDetail, requestUltra,
+    group, getHeight, lonLatToWorld, tileMeters, updateDetail, requestDetail, requestUltra,
     sizeMeters: tileMeters * n,
     // 2D地図(ブリーフィング)用: タイル範囲と世界座標での北西角
     map: {
