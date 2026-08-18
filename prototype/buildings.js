@@ -10,9 +10,6 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xb8b0a4 });
-// 屋根を地形の上面(タイルの単色フォールバック/写真キャップ)よりわずかに浮かせて、
-// 同じ高さのポリゴン同士のZファイティングを避ける
-const ROOF_RAISE = 0.03;
 
 function emptyLayer() {
   return { group: new THREE.Group(), count: 0, setVisible() {}, dispose() {} };
@@ -58,12 +55,31 @@ function placeBuilding(footprint, height, terrain) {
   return { pts2d, cx, cz, groundY, h };
 }
 
+// 側面だけの手作りジオメトリ(天面キャップは作らない)。屋根は別ジオメトリ
+// (buildRoofGeometry)で同じ高さにちょうど乗せるため、天面キャップを残すと
+// 屋根とほぼ同一平面になり、遠距離では深度バッファ精度不足でZファイティング
+// (チラつき)を起こす。天面が無ければそもそも競合する面が存在しない
 function buildWallGeometry({ pts2d, cx, cz, groundY, h }) {
-  const shape = new THREE.Shape(pts2d.map(([x, y]) => new THREE.Vector2(x, y)));
-  const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false });
+  const n = pts2d.length;
+  const positions = new Float32Array(n * 6 * 3); // 1辺あたり2三角形×3頂点×3成分
+  let vi = 0;
+  for (let i = 0; i < n; i++) {
+    const [x0, y0] = pts2d[i];
+    const [x1, y1] = pts2d[(i + 1) % n];
+    // A=床(p0) B=床(p1) C=天井(p1) D=天井(p0)。pts2dはCCWなので、この頂点順(A,B,D)
+    // と(B,C,D)はどちらも外向き法線になる(cross(B-A,D-A)=cross(C-B,D-B)=h*(dy,-dx,0))
+    positions[vi++] = x0; positions[vi++] = y0; positions[vi++] = 0;
+    positions[vi++] = x1; positions[vi++] = y1; positions[vi++] = 0;
+    positions[vi++] = x0; positions[vi++] = y0; positions[vi++] = h;
+    positions[vi++] = x1; positions[vi++] = y1; positions[vi++] = 0;
+    positions[vi++] = x1; positions[vi++] = y1; positions[vi++] = h;
+    positions[vi++] = x0; positions[vi++] = y0; positions[vi++] = h;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.computeVertexNormals();
   geo.rotateX(-Math.PI / 2);
   geo.translate(cx, groundY, cz);
-  geo.deleteAttribute('uv');
   return geo;
 }
 
@@ -86,7 +102,7 @@ function buildRoofGeometry({ pts2d, cx, cz, groundY, h }, tile, tileMeters) {
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
 
   geo.rotateX(-Math.PI / 2);
-  geo.translate(cx, groundY + h + ROOF_RAISE, cz);
+  geo.translate(cx, groundY + h, cz);
   return geo;
 }
 
