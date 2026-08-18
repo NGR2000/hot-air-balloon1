@@ -10,6 +10,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { heightOf } from './height-default.mjs';
 import { simplifyFootprint } from './simplify.mjs';
+import { tileKeyFor, selectByTileQuota } from './tile-quota.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,8 +19,9 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
-const MAX_BUILDINGS = 8000;
+const MAX_BUILDINGS = 14000;
 const MAX_VERTICES = 12;
+const MIN_PER_TILE = 20;
 
 function bboxAround(lon, lat, radiusKm) {
   const dLat = radiusKm / 111.32;
@@ -81,11 +83,11 @@ export async function convertArea(areaId, lon, lat, radiusKm = 10) {
       footprint: simplifyFootprint(footprint, MAX_VERTICES),
       height,
       _distKm: roughDistKm(cLon, cLat, lon, lat),
+      _tileKey: tileKeyFor(cLon, cLat, lon, lat),
     });
   }
 
-  buildings.sort((a, b) => a._distKm - b._distKm);
-  const limited = buildings.slice(0, MAX_BUILDINGS).map(({ _distKm, ...b }) => b);
+  const limited = selectByTileQuota(buildings, MAX_BUILDINGS, MIN_PER_TILE);
 
   return {
     source: 'osm',
