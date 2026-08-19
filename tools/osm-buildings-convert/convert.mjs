@@ -19,7 +19,7 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.kumi.systems/api/interpreter',
 ];
 
-const MAX_BUILDINGS = 14000;
+const MAX_BUILDINGS = 28000; // TILE_RADIUS 2→3拡張(面積約1.96倍)に合わせて増量
 const MAX_VERTICES = 12;
 const MIN_PER_TILE = 20;
 
@@ -66,7 +66,7 @@ function roughDistKm(lon, lat, cLon, cLat) {
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
-export async function convertArea(areaId, lon, lat, radiusKm = 10) {
+export async function convertArea(areaId, lon, lat, radiusKm = 15) {
   const bbox = bboxAround(lon, lat, radiusKm);
   const query = `[out:json][timeout:90];(way["building"](${bbox.south},${bbox.west},${bbox.north},${bbox.east}););out geom;`;
   const data = await fetchOverpass(query);
@@ -104,7 +104,7 @@ async function main() {
     process.exit(1);
   }
   const lon = Number(lonStr), lat = Number(latStr);
-  const radiusKm = radiusStr ? Number(radiusStr) : 10;
+  const radiusKm = radiusStr ? Number(radiusStr) : 15;
   console.log(`[${areaId}] Overpassへ問い合わせ中 (中心 ${lon},${lat} 半径${radiusKm}km)...`);
   const result = await convertArea(areaId, lon, lat, radiusKm);
   await writeFile(outPath, JSON.stringify(result));
