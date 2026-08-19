@@ -10,7 +10,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { heightOf } from './height-default.mjs';
 import { simplifyFootprint } from './simplify.mjs';
-import { tileKeyFor, selectByTileQuota } from './tile-quota.mjs';
+import { tileKeyFor, selectByTileQuota, footprintAreaM2 } from './tile-quota.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -84,6 +84,7 @@ export async function convertArea(areaId, lon, lat, radiusKm = 15) {
       height,
       _distKm: roughDistKm(cLon, cLat, lon, lat),
       _tileKey: tileKeyFor(cLon, cLat, lon, lat),
+      _areaM2: footprintAreaM2(footprint, cLat),
     });
   }
 
