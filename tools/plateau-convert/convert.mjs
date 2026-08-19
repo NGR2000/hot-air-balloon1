@@ -10,7 +10,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { writeFile } from 'node:fs/promises';
 import { simplifyFootprint } from '../osm-buildings-convert/simplify.mjs';
-import { tileKeyFor, selectByTileQuota } from '../osm-buildings-convert/tile-quota.mjs';
+import { tileKeyFor, selectByTileQuota, footprintAreaM2 } from '../osm-buildings-convert/tile-quota.mjs';
 
 const execFileAsync = promisify(execFile);
 const MAX_BUILDINGS = 28000; // TILE_RADIUS 2→3拡張(面積約1.96倍)に合わせて増量
@@ -94,6 +94,7 @@ function extractBuildings(gmlText, centerLon, centerLat, radiusKm) {
       height: b.height,
       _distKm: distKm,
       _tileKey: tileKeyFor(cLon, cLat, centerLon, centerLat),
+      _areaM2: footprintAreaM2(b.footprint, cLat),
     });
   }
   return buildings;
