@@ -1,4 +1,4 @@
-// 建物の3D表現(LOD1相当の押し出しジオメトリ)。壁は淡いベージュ系の色を基準に、
+// 建物の3D表現(LOD1相当の押し出しジオメトリ)。壁は無彩色に近いグレーを基準に、
 // 1棟ごとに明るさを少しずつ変え(WALL_SHADE_MIN周辺)、さらに細かい濃淡ノイズの
 // テクスチャ(WALL_GRAIN_*周辺)を重ねることで、単色べた塗りの単調さを消している。
 // 屋根だけ地形と同じ航空写真テクスチャを貼る(terrain.getTileAt()でタイルの
@@ -17,8 +17,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // 棟数分に増えてしまう)。materialの色 × 頂点カラー × 下のノイズテクスチャ で
 // 最終的な色が決まるので、ここの色が「最も明るい棟の、最も明るい部分の色」になる。
 // 屋根(地形の航空写真テクスチャ、グレー寄り)と並んだときに壁だけ明るい白に
-// 浮いて見えたため、彩度を落として屋根と近いグレー寄りの色にしている
-const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xa8a49c, vertexColors: true });
+// 浮いて見えたため彩度を落としているが、単純なR=G=Bにすると朝日の暖色(下のsun参照)
+// との掛け算で実機ではRが強く出て赤みがかって見えるため、あらかじめ少し寒色
+// (B>R)寄りにして相殺している
+const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xa0a4a8, vertexColors: true });
 
 // 明るさのばらつきの下限(見た目=sRGB基準の倍率。1.0でベース色そのまま)。
 // 0.82なら中央値0.91を挟んでおよそ±10%の幅になる
