@@ -202,8 +202,11 @@ scene.background = new THREE.Color(0x9ec8e8);
 scene.fog = new THREE.Fog(0x9ec8e8, 4000, 16000);
 
 scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x54604a, 0.9));
-const sun = new THREE.DirectionalLight(0xfff2df, 1.6);
-sun.position.set(-3000, 5000, -2000);
+// 南東・仰角約20°(朝7時ごろの朝日を想定)。ワールド座標は東+X/南+Zなので、
+// X=Zの位置は方位135°(南東)になる。北半球(日本・ポーランドとも北緯)では
+// 太陽は東→南→西と弧を描くため、南側の壁が明るくなる向きにしている
+const sun = new THREE.DirectionalLight(0xffb37a, 1.6);
+sun.position.set(4000, 2000, 4000);
 scene.add(sun);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.5, 40000);
