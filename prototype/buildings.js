@@ -220,6 +220,29 @@ function buildRoofGeometry({ pts2d, cx, cz, groundY, h }, tile, tileMeters) {
   return geo;
 }
 
+// フライト開始直後は地形タイル読み込みと帯域を奪い合うため、建物データの取得が
+// 一時的に失敗しやすい。404(そのエリアのデータが実際に無い)以外は通信の一時的な
+// 失敗とみなして再試行する(terrain.jsのfetchBitmapRetryと同じ考え方)
+async function fetchBuildingsJson(url, attempts = 3) {
+  let lastErr;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = new Error(`buildings fetch failed: ${res.status} ${url}`);
+        err.status = res.status;
+        throw err;
+      }
+      return await res.json();
+    } catch (e) {
+      lastErr = e;
+      if (e && e.status && e.status < 500 && e.status !== 429) throw e;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+    }
+  }
+  throw lastErr;
+}
+
 // areaId: PRESET_AREASの id。tier: 'simple'(軽量・4G/低スペック向け)または'detailed'
 // (高密度・Wi-Fi推奨)。データが無い/取得失敗なら建物0棟の空レイヤーを返す(フェイルセーフ)
 export async function buildBuildings(areaId, tier, terrain, onProgress) {
@@ -236,9 +259,7 @@ export async function buildBuildings(areaId, tier, terrain, onProgress) {
   const suffix = tier === 'simple' ? '-simple' : '';
   let data;
   try {
-    const res = await fetch(`./data/buildings/${areaId}${suffix}.json`);
-    if (!res.ok) return emptyLayer();
-    data = await res.json();
+    data = await fetchBuildingsJson(`./data/buildings/${areaId}${suffix}.json`);
   } catch {
     return emptyLayer();
   }
@@ -271,30 +292,38 @@ export async function buildBuildings(areaId, tier, terrain, onProgress) {
 
   if (wallGeometries.length === 0) return emptyLayer();
 
-  const group = new THREE.Group();
+  // ここから先で予期しない例外(mergeGeometries失敗等)が起きると、呼び出し元の
+  // main.jsでは捕捉されず、建物が二度と表示されないまま(オフオンで再試行しても
+  // 直らない)状態になりうるため、フェイルセーフとして空レイヤーにフォールバックする
+  try {
+    const group = new THREE.Group();
 
-  const mergedWalls = mergeGeometries(wallGeometries, false);
-  for (const geo of wallGeometries) geo.dispose();
-  group.add(new THREE.Mesh(mergedWalls, WALL_MATERIAL));
+    const mergedWalls = mergeGeometries(wallGeometries, false);
+    for (const geo of wallGeometries) geo.dispose();
+    group.add(new THREE.Mesh(mergedWalls, WALL_MATERIAL));
 
-  // 屋根はタイル単位(=地形と同じ写真テクスチャを共有するmaterial単位)でまとめて1メッシュずつ追加
-  const roofMeshes = [];
-  for (const { mat, geos } of roofGroups.values()) {
-    const mergedRoof = mergeGeometries(geos, false);
-    for (const geo of geos) geo.dispose();
-    const mesh = new THREE.Mesh(mergedRoof, mat); // matは地形タイルの共有material(disposeしない)
-    roofMeshes.push(mesh);
-    group.add(mesh);
+    // 屋根はタイル単位(=地形と同じ写真テクスチャを共有するmaterial単位)でまとめて1メッシュずつ追加
+    const roofMeshes = [];
+    for (const { mat, geos } of roofGroups.values()) {
+      const mergedRoof = mergeGeometries(geos, false);
+      for (const geo of geos) geo.dispose();
+      const mesh = new THREE.Mesh(mergedRoof, mat); // matは地形タイルの共有material(disposeしない)
+      roofMeshes.push(mesh);
+      group.add(mesh);
+    }
+
+    return {
+      group,
+      count,
+      setVisible(v) { group.visible = v; },
+      dispose() {
+        mergedWalls.dispose();
+        for (const mesh of roofMeshes) mesh.geometry.dispose(); // materialは地形側が所有するため触らない
+        group.clear();
+      },
+    };
+  } catch (e) {
+    console.error('[buildings] geometry build failed', e);
+    return emptyLayer();
   }
-
-  return {
-    group,
-    count,
-    setVisible(v) { group.visible = v; },
-    dispose() {
-      mergedWalls.dispose();
-      for (const mesh of roofMeshes) mesh.geometry.dispose(); // materialは地形側が所有するため触らない
-      group.clear();
-    },
-  };
 }

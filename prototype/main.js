@@ -778,7 +778,7 @@ loadingEl.remove();
 
 // 前回セッションでトグルがONのまま保存されていた場合、ここで初回ロードする
 // (デフォルトOFFのユーザーはこの非同期処理自体が走らず、ロード時間・メモリとも増えない)
-applyBuildingsVisibility();
+applyBuildingsVisibility().catch((e) => console.error('[buildings] initial load failed', e));
 
 // ---- ブリーフィング(タスクシート+パイバル編集+離陸地点選択) ----
 setupWindEditor();
