@@ -16,8 +16,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // 頂点カラーを使うしかない(棟ごとにmaterialを分けると統合が壊れ、ドローコールが
 // 棟数分に増えてしまう)。materialの色 × 頂点カラー × 下のノイズテクスチャ で
 // 最終的な色が決まるので、ここの色が「最も明るい棟の、最も明るい部分の色」になる。
-// 真っ白だと地形から浮いて見えたため、地形の色になじむよう少し落ち着いた色にしている
-const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xd0cbbc, vertexColors: true });
+// 屋根(地形の航空写真テクスチャ、グレー寄り)と並んだときに壁だけ明るい白に
+// 浮いて見えたため、彩度を落として屋根と近いグレー寄りの色にしている
+const WALL_MATERIAL = new THREE.MeshLambertMaterial({ color: 0xa8a49c, vertexColors: true });
 
 // 明るさのばらつきの下限(見た目=sRGB基準の倍率。1.0でベース色そのまま)。
 // 0.82なら中央値0.91を挟んでおよそ±10%の幅になる
@@ -45,10 +46,10 @@ function wallShadeByte(cx, cz) {
 // (map)にタイル張りの手続き型ノイズ画像を貼る。頂点数を増やさずに済むうえ、
 // 建物の大きさに関係なく実寸(m)基準でタイリングするので、大きな建物でも
 // 引き伸ばされて見えることがない
-const WALL_GRAIN_SCALE = 2.5; // ノイズが1回タイリングする物理サイズ(m)。大きな壁面でも
+const WALL_GRAIN_SCALE = 4; // ノイズが1回タイリングする物理サイズ(m)。大きな壁面でも
 // タイルの繰り返しが目立たない程度に大きめにしている
-const WALL_GRAIN_MEAN = 0.93; // 見た目(sRGB)基準の平均倍率
-const WALL_GRAIN_AMOUNT = 0.07; // 平均からの振れ幅
+const WALL_GRAIN_MEAN = 0.95; // 見た目(sRGB)基準の平均倍率
+const WALL_GRAIN_AMOUNT = 0.035; // 平均からの振れ幅(パターンとして認識されないよう控えめに)
 
 // gridN×gridNの格子点(トーラス状、端が反対側の端とつながる)を双一次補間する値ノイズ。
 // 端をmod演算で折り返すことで、タイル境界に継ぎ目が出ない(継ぎ目があると、その線が
