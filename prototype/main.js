@@ -205,7 +205,7 @@ scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x54604a, 0.9));
 // 南東・仰角約20°(朝7時ごろの朝日を想定)。ワールド座標は東+X/南+Zなので、
 // X=Zの位置は方位135°(南東)になる。北半球(日本・ポーランドとも北緯)では
 // 太陽は東→南→西と弧を描くため、南側の壁が明るくなる向きにしている
-const sun = new THREE.DirectionalLight(0xffb37a, 1.6);
+const sun = new THREE.DirectionalLight(0xffd9b7, 1.6); // 朝日の暖色(オレンジが強すぎたため控えめに調整)
 sun.position.set(4000, 2000, 4000);
 scene.add(sun);
 
