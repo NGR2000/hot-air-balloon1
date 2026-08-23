@@ -546,6 +546,13 @@ buildingsTierSelect.value = buildingsTier;
 buildingsTierSelect.addEventListener('change', () => {
   buildingsTier = buildingsTierSelect.value;
   localStorage.setItem(BUILDINGS_TIER_KEY, buildingsTier);
+  // 建物データを選んだのに毎回ボタンを手動でONにし直す手間をなくすため、
+  // 「なし」以外を選んだ時点で表示もONにしておく(地形読み込み完了後、
+  // 末尾のapplyBuildingsVisibility()呼び出しで実際に構築される)
+  if (buildingsTier !== 'none' && !buildingsOn) {
+    buildingsOn = true;
+    localStorage.setItem(BUILDINGS_KEY, 'on');
+  }
   renderBuildingsBtn();
 });
 
