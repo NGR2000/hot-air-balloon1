@@ -69,7 +69,8 @@ function decodeDem(bitmap) {
 
 // centerLon/Lat を原点に、(2*radius+1)^2 枚の DEM タイルで地形グループを作る。
 // 戻り値: { group, getHeight(x,z), tileMeters, sizeMeters }
-export async function buildTerrain(centerLon, centerLat, radius, onProgress) {
+export async function buildTerrain(centerLon, centerLat, radius, onProgress, options = {}) {
+  const { enableUltra = true, hiresMax = 12 } = options;
   const c = lonLatToTile(centerLon, centerLat, DEM_Z);
   const latRad = (centerLat * Math.PI) / 180;
   // メルカトルの緯度伸長を打ち消して「実距離のメートル」で組む
@@ -201,7 +202,7 @@ export async function buildTerrain(centerLon, centerLat, radius, onProgress) {
   // --- 低高度向け高解像度テクスチャ(z16 ≒ 2m/px)への段階アップグレード ---
   const HIRES_Z = 16;
   const HIRES_RADIUS = 3000; // この距離内のタイルを対象(m)
-  const HIRES_MAX = 12;      // メモリ保護のための上限枚数
+  const HIRES_MAX = hiresMax; // メモリ保護のための上限枚数(低スペック端末向けに絞れる)
   let hiCount = 0;
   let upgradingCount = 0;
 
@@ -299,6 +300,7 @@ export async function buildTerrain(centerLon, centerLat, radius, onProgress) {
   let ultraLoading = false;
 
   async function requestUltra(x, z) {
+    if (!enableUltra) return; // 低スペック端末向け: z17(4096px)への昇格自体を行わない
     const dbg = document.documentElement.dataset; // デバッグ確認用(あとで消す)
     if (ultraLoading) { dbg.ultraState = 'loading'; return; }
     const h = tileMeters / 2;
