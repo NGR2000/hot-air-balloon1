@@ -401,7 +401,7 @@ const STR = {
     'opts.panelTitle': 'Control Options',
     'opts.soundSectionLabel': 'Sound',
     'opts.buildingsSectionLabel': 'Buildings',
-    'opts.lowSpecSectionLabel': 'Low-spec mode',
+    'opts.lowSpecSectionLabel': 'Lightweight mode',
     'opts.lowSpecHint': 'Changing this reloads the page. Defaults to ON on iPhone/iPad.',
     'pibal.launchTimeNote': ' (at launch)',
 
@@ -416,8 +416,8 @@ const STR = {
     'btn.soundOff': 'Sound OFF',
     'btn.buildingsOn': 'Buildings ON',
     'btn.buildingsOff': 'Buildings OFF',
-    'btn.lowspecOn': 'Low-spec ON',
-    'btn.lowspecOff': 'Low-spec OFF',
+    'btn.lowspecOn': 'Lightweight ON',
+    'btn.lowspecOff': 'Lightweight OFF',
 
     'help.bodyHtml':
       '<b>Space</b> Burner (hold) <b>R</b> Rip line (hold) <b>M</b> Drop marker<br>' +
