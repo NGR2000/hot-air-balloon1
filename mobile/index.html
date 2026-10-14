@@ -558,20 +558,29 @@
   <button id="result-share" data-i18n="wind.copyBtn">条件URLをコピー</button>
   <button id="result-replay" style="display:none" data-i18n="result.replayBtn">🎯 投下シーンをリプレイ</button>
   <div class="r-support">
-    <div class="s-title" data-i18n="support.title">🎈 日本代表を応援しよう!</div>
-    <div class="s-text" data-i18n="support.text1">
-      2026年9月、ポーランド🇵🇱クロスノで開催される熱気球世界選手権に、
-      日本から7名のパイロットが日本代表として出場予定です。
+    <div class="s-title" data-i18n="support.title">🎈 熱気球フライトを応援しよう!</div>
+    <!-- 応援Tシャツの受付は 2026-10-14 23:59(日本時間)まで。過ぎたら下のスクリプトで自動的に隠す -->
+    <div class="s-text" data-i18n="support.text1" data-until="2026-10-14T14:59:59Z">
+      応援Tシャツのお申し込みは、10月14日(水)23:59で締め切ります。
     </div>
     <a class="s-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdhAzGXCH2ZGikzn_RY3RanpaANnoMbtcZ9XlQYyfdCiSGKDA/viewform"
-       target="_blank" rel="noopener" data-i18n="support.tshirtBtn">応援Tシャツを申し込む</a>
+       target="_blank" rel="noopener" data-i18n="support.tshirtBtn" data-until="2026-10-14T14:59:59Z">応援Tシャツを申し込む</a>
     <div class="s-text" data-i18n-html="support.text2">
-      Tシャツは3デザイン×各2色、綿素材とドライ素材から選べます。<br>
-      ご寄付も受け付けています。ご寄付いただいた方には、世界選手権の開催地
-      クロスノの実在地形で飛べる<b>特別版アプリ</b>をお届けします。
+      これまでのご寄付に心から感謝いたします。<br>
+      今後は、サーバーの維持と新しいエリア・機能の開発にかかる費用の一部を、
+      世界各地のフライトエリアを収録した有料の<b>サポーター版</b>のご購入という形でお願いすることにしました。
+      購入ページは近日公開します。
     </div>
     <a class="s-btn insta" href="https://www.instagram.com/hotairballoongames2026/"
-       target="_blank" rel="noopener" data-i18n="support.instaBtn">寄付のご案内はInstagramへ</a>
+       target="_blank" rel="noopener" data-i18n="support.instaBtn">最新情報はInstagramへ</a>
+    <script>
+      // 受付期限(data-until)を過ぎた案内を隠す。結果画面を開いたまま期限をまたいだ場合は
+      // 次に読み込んだときに消える(厳密さは不要)
+      document.querySelectorAll('#result [data-until]').forEach((el) => {
+        const until = Date.parse(el.dataset.until);
+        if (Number.isFinite(until) && Date.now() > until) el.style.display = 'none';
+      });
+    </script>
   </div>
 </div>
 <button id="result-reopen" type="button" style="display:none" data-i18n="result.reopenBtn">結果を表示 ▴</button>
