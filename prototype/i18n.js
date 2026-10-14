@@ -156,15 +156,22 @@ const STR = {
     'mpResults.thDist': '距離',
     'mpResults.rematchBtn': 'もう一回戦',
 
-    'support.title': '🎈 熱気球フライトを応援しよう!',
-    'support.text1': '応援Tシャツのお申し込みは、10月14日(水)23:59で締め切ります。',
+    'support.title': '🎈 日本代表を応援しよう!',
+    'support.text1': '2026年9月、ポーランド🇵🇱クロスノで開催される熱気球世界選手権に、日本から7名のパイロットが日本代表として出場予定です。',
     'support.tshirtBtn': '応援Tシャツを申し込む',
     'support.text2':
-      'これまでのご寄付に心から感謝いたします。<br>' +
+      'Tシャツは3デザイン×各2色、綿素材とドライ素材から選べます。<br>' +
+      'ご寄付も受け付けています。ご寄付いただいた方には、世界選手権の開催地' +
+      'クロスノの実在地形で飛べる<b>特別版アプリ</b>をお届けします。',
+    'support.instaBtn': '寄付のご案内はInstagramへ',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 熱気球フライトを応援しよう!',
+    'supportNext.text':
+      'これまでのご寄付と、応援Tシャツへのたくさんのお申し込みに心から感謝いたします。<br>' +
       '今後は、サーバーの維持と新しいエリア・機能の開発にかかる費用の一部を、' +
       '世界各地のフライトエリアを収録した有料の<b>サポーター版</b>のご購入という形でお願いすることにしました。' +
       '購入ページは近日公開します。',
-    'support.instaBtn': '最新情報はInstagramへ',
+    'supportNext.instaBtn': '最新情報はInstagramへ',
 
     'pibal.panelTitle': 'パイバル観測データ',
     'pibal.note': '高度: MSL / 風向: <span id="pibal-mode-label">FROM</span>(磁方位)<br>※磁気偏角は未考慮(プロトタイプ)',
@@ -384,15 +391,22 @@ const STR = {
     'mpResults.thDist': 'Distance',
     'mpResults.rematchBtn': 'Rematch',
 
-    'support.title': '🎈 Support Hot Air Balloon Flight!',
-    'support.text1': 'Support T-shirt orders close on Wednesday, October 14 at 23:59 (Japan time).',
+    'support.title': '🎈 Cheer on Team Japan!',
+    'support.text1': 'In September 2026, 7 pilots will represent Japan at the Hot Air Balloon World Championship in Krosno🇵🇱, Poland.',
     'support.tshirtBtn': 'Order a Support T-Shirt',
     'support.text2':
-      'Thank you so much for all your donations so far.<br>' +
+      'Choose from 3 designs × 2 colors each, in cotton or dry-fit fabric.<br>' +
+      'Donations are also welcome. Donors receive a <b>special edition app</b> where you can fly ' +
+      'over the real terrain of Krosno, the World Championship host city.',
+    'support.instaBtn': 'Donation info on Instagram',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 Support Hot Air Balloon Flight!',
+    'supportNext.text':
+      'Thank you so much for all your donations and support T-shirt orders.<br>' +
       'From now on, we are asking for support toward server and development costs ' +
       'through purchases of the paid <b>Supporter Edition</b>, with flight areas from around the world. ' +
       'The purchase page is coming soon.',
-    'support.instaBtn': 'Latest news on Instagram',
+    'supportNext.instaBtn': 'Latest news on Instagram',
 
     'pibal.panelTitle': 'Pibal Observation Data',
     'pibal.note': 'Alt: MSL / Dir: <span id="pibal-mode-label">FROM</span> (magnetic)<br>*Magnetic declination not modeled (prototype)',
@@ -612,15 +626,22 @@ const STR = {
     'mpResults.thDist': 'Distância',
     'mpResults.rematchBtn': 'Revanche',
 
-    'support.title': '🎈 Apoie o Hot Air Balloon Flight!',
-    'support.text1': 'Os pedidos de camisetas de apoio encerram na quarta-feira, 14 de outubro, às 23h59 (horário do Japão).',
+    'support.title': '🎈 Torça pela Seleção Japonesa!',
+    'support.text1': 'Em setembro de 2026, 7 pilotos representarão o Japão no Campeonato Mundial de Balonismo em Krosno🇵🇱, Polônia.',
     'support.tshirtBtn': 'Encomendar Camiseta de Apoio',
     'support.text2':
-      'Muito obrigado por todas as doações até agora.<br>' +
+      'Escolha entre 3 designs × 2 cores cada, em algodão ou tecido dry-fit.<br>' +
+      'Doações também são bem-vindas. Doadores recebem um <b>aplicativo especial</b> em que você pode voar ' +
+      'sobre o terreno real de Krosno, a cidade-sede do Campeonato Mundial.',
+    'support.instaBtn': 'Informações de doação no Instagram',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 Apoie o Hot Air Balloon Flight!',
+    'supportNext.text':
+      'Muito obrigado por todas as doações e pedidos de camisetas de apoio.<br>' +
       'A partir de agora, pedimos apoio aos custos de servidor e desenvolvimento ' +
       'por meio da compra da <b>Edição Apoiador</b> paga, com áreas de voo do mundo todo. ' +
       'A página de compra estará disponível em breve.',
-    'support.instaBtn': 'Novidades no Instagram',
+    'supportNext.instaBtn': 'Novidades no Instagram',
 
     'pibal.panelTitle': 'Dados de Sondagem (Pibal)',
     'pibal.note': 'Alt: MSL / Dir: <span id="pibal-mode-label">FROM</span> (magnética)<br>*Declinação magnética não considerada (protótipo)',
@@ -840,15 +861,22 @@ const STR = {
     'mpResults.thDist': 'Odległość',
     'mpResults.rematchBtn': 'Rewanż',
 
-    'support.title': '🎈 Wesprzyj Hot Air Balloon Flight!',
-    'support.text1': 'Zamówienia koszulek kibica przyjmujemy do środy 14 października, do godz. 23:59 (czasu japońskiego).',
+    'support.title': '🎈 Kibicuj Reprezentacji Japonii!',
+    'support.text1': 'We wrześniu 2026 roku 7 pilotów będzie reprezentować Japonię na Mistrzostwach Świata w Balonach w Krośnie🇵🇱, w Polsce.',
     'support.tshirtBtn': 'Zamów Koszulkę Kibica',
     'support.text2':
-      'Serdecznie dziękujemy za dotychczasowe darowizny.<br>' +
+      'Wybierz spośród 3 wzorów × 2 kolory każdy, z bawełny lub materiału dry-fit.<br>' +
+      'Darowizny są również mile widziane. Darczyńcy otrzymują <b>specjalną wersję aplikacji</b>, w której można latać ' +
+      'nad prawdziwym terenem Krosna, miasta-gospodarza Mistrzostw Świata.',
+    'support.instaBtn': 'Informacje o darowiznach na Instagramie',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 Wesprzyj Hot Air Balloon Flight!',
+    'supportNext.text':
+      'Serdecznie dziękujemy za wszystkie darowizny i zamówienia koszulek kibica.<br>' +
       'Od teraz prosimy o wsparcie kosztów serwerów i rozwoju ' +
       'poprzez zakup płatnej <b>wersji Supporter</b> z obszarami lotów z całego świata. ' +
       'Strona zakupu pojawi się wkrótce.',
-    'support.instaBtn': 'Najnowsze informacje na Instagramie',
+    'supportNext.instaBtn': 'Najnowsze informacje na Instagramie',
 
     'pibal.panelTitle': 'Dane Sondażu Pilotowego',
     'pibal.note': 'Wys.: n.p.m. / Kier.: <span id="pibal-mode-label">FROM</span> (magnetyczny)<br>*Deklinacja magnetyczna nieuwzględniona (prototyp)',
@@ -1068,15 +1096,22 @@ const STR = {
     'mpResults.thDist': 'Distance',
     'mpResults.rematchBtn': 'Revanche',
 
-    'support.title': '🎈 Soutenez Hot Air Balloon Flight !',
-    'support.text1': 'Les commandes de T-shirts de soutien se terminent le mercredi 14 octobre à 23 h 59 (heure du Japon).',
+    'support.title': "🎈 Soutenez l'équipe du Japon !",
+    'support.text1': 'En septembre 2026, 7 pilotes représenteront le Japon au Championnat du monde de montgolfières à Krosno🇵🇱, en Pologne.',
     'support.tshirtBtn': 'Commander un T-shirt de soutien',
     'support.text2':
-      "Merci infiniment pour tous vos dons jusqu'ici.<br>" +
+      'Choisissez parmi 3 designs × 2 couleurs chacun, en coton ou en tissu dry-fit.<br>' +
+      'Les dons sont également les bienvenus. Les donateurs reçoivent une <b>application spéciale</b> permettant de voler ' +
+      'au-dessus du terrain réel de Krosno, ville hôte du Championnat du monde.',
+    'support.instaBtn': 'Infos sur les dons sur Instagram',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 Soutenez Hot Air Balloon Flight !',
+    'supportNext.text':
+      'Merci infiniment pour tous vos dons et vos commandes de T-shirts de soutien.<br>' +
       'Désormais, nous vous proposons de soutenir les frais de serveur et de développement ' +
       "en achetant l'<b>édition Supporter</b> payante, avec des zones de vol du monde entier. " +
       "La page d'achat sera bientôt disponible.",
-    'support.instaBtn': 'Actualités sur Instagram',
+    'supportNext.instaBtn': 'Actualités sur Instagram',
 
     'pibal.panelTitle': 'Données de sondage pibal',
     'pibal.note': 'Alt : MSL / Dir : <span id="pibal-mode-label">FROM</span> (magnétique)<br>*Déclinaison magnétique non prise en compte (prototype)',
@@ -1296,15 +1331,22 @@ const STR = {
     'mpResults.thDist': 'Entfernung',
     'mpResults.rematchBtn': 'Revanche',
 
-    'support.title': '🎈 Unterstütze Hot Air Balloon Flight!',
-    'support.text1': 'Fan-T-Shirts können bis Mittwoch, 14. Oktober, 23:59 Uhr (japanische Zeit) bestellt werden.',
+    'support.title': '🎈 Unterstütze Team Japan!',
+    'support.text1': 'Im September 2026 vertreten 7 Piloten Japan bei der Heißluftballon-Weltmeisterschaft in Krosno🇵🇱, Polen.',
     'support.tshirtBtn': 'Fan-T-Shirt bestellen',
     'support.text2':
-      'Vielen Dank für alle bisherigen Spenden.<br>' +
+      'Wähle aus 3 Designs × je 2 Farben, in Baumwolle oder Funktionsstoff.<br>' +
+      'Spenden sind ebenfalls willkommen. Spender erhalten eine <b>Sonderversion der App</b>, in der man ' +
+      'über das echte Gelände von Krosno, der Gastgeberstadt der Weltmeisterschaft, fliegen kann.',
+    'support.instaBtn': 'Spendeninfo auf Instagram',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 Unterstütze Hot Air Balloon Flight!',
+    'supportNext.text':
+      'Vielen Dank für alle Spenden und Bestellungen von Fan-T-Shirts.<br>' +
       'Ab jetzt bitten wir um Unterstützung der Server- und Entwicklungskosten ' +
       'durch den Kauf der kostenpflichtigen <b>Supporter-Edition</b> mit Fluggebieten aus aller Welt. ' +
       'Die Kaufseite folgt in Kürze.',
-    'support.instaBtn': 'Neuigkeiten auf Instagram',
+    'supportNext.instaBtn': 'Neuigkeiten auf Instagram',
 
     'pibal.panelTitle': 'Pibal-Messdaten',
     'pibal.note': 'Höhe: MSL / Richt.: <span id="pibal-mode-label">FROM</span> (magnetisch)<br>*Missweisung nicht berücksichtigt (Prototyp)',
@@ -1524,15 +1566,22 @@ const STR = {
     'mpResults.thDist': 'Distancia',
     'mpResults.rematchBtn': 'Revancha',
 
-    'support.title': '🎈 ¡Apoya Hot Air Balloon Flight!',
-    'support.text1': 'Los pedidos de camisetas de apoyo cierran el miércoles 14 de octubre a las 23:59 (hora de Japón).',
+    'support.title': '🎈 ¡Anima al Equipo Japón!',
+    'support.text1': 'En septiembre de 2026, 7 pilotos representarán a Japón en el Campeonato Mundial de Globos Aerostáticos en Krosno🇵🇱, Polonia.',
     'support.tshirtBtn': 'Pedir Camiseta de Apoyo',
     'support.text2':
-      'Muchas gracias por todas las donaciones hasta ahora.<br>' +
+      'Elige entre 3 diseños × 2 colores cada uno, en algodón o tela dry-fit.<br>' +
+      'También se aceptan donaciones. Los donantes reciben una <b>aplicación especial</b> con la que se puede volar ' +
+      'sobre el terreno real de Krosno, la ciudad anfitriona del Campeonato Mundial.',
+    'support.instaBtn': 'Información sobre donaciones en Instagram',
+    // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
+    'supportNext.title': '🎈 ¡Apoya Hot Air Balloon Flight!',
+    'supportNext.text':
+      'Muchas gracias por todas las donaciones y los pedidos de camisetas de apoyo.<br>' +
       'A partir de ahora, pedimos apoyo para los costes de servidores y desarrollo ' +
       'mediante la compra de la <b>edición Supporter</b> de pago, con zonas de vuelo de todo el mundo. ' +
       'La página de compra estará disponible pronto.',
-    'support.instaBtn': 'Novedades en Instagram',
+    'supportNext.instaBtn': 'Novedades en Instagram',
 
     'pibal.panelTitle': 'Datos de Sondeo Pibal',
     'pibal.note': 'Alt.: MSL / Dir.: <span id="pibal-mode-label">FROM</span> (magnética)<br>*Declinación magnética no considerada (prototipo)',

@@ -557,31 +557,50 @@
   <button id="result-retry" data-i18n="result.retryBtn">もう一度飛ぶ</button>
   <button id="result-share" data-i18n="wind.copyBtn">条件URLをコピー</button>
   <button id="result-replay" style="display:none" data-i18n="result.replayBtn">🎯 投下シーンをリプレイ</button>
-  <div class="r-support">
-    <div class="s-title" data-i18n="support.title">🎈 熱気球フライトを応援しよう!</div>
-    <!-- 応援Tシャツの受付は 2026-10-14 23:59(日本時間)まで。過ぎたら下のスクリプトで自動的に隠す -->
-    <div class="s-text" data-i18n="support.text1" data-until="2026-10-14T14:59:59Z">
-      応援Tシャツのお申し込みは、10月14日(水)23:59で締め切ります。
+  <!-- 応援Tシャツ受付中(2026-10-14 23:59 日本時間まで)の応援欄 -->
+  <div class="r-support" data-until="2026-10-14T15:00:00Z">
+    <div class="s-title" data-i18n="support.title">🎈 日本代表を応援しよう!</div>
+    <div class="s-text" data-i18n="support.text1">
+      2026年9月、ポーランド🇵🇱クロスノで開催される熱気球世界選手権に、
+      日本から7名のパイロットが日本代表として出場予定です。
     </div>
     <a class="s-btn" href="https://docs.google.com/forms/d/e/1FAIpQLSdhAzGXCH2ZGikzn_RY3RanpaANnoMbtcZ9XlQYyfdCiSGKDA/viewform"
-       target="_blank" rel="noopener" data-i18n="support.tshirtBtn" data-until="2026-10-14T14:59:59Z">応援Tシャツを申し込む</a>
+       target="_blank" rel="noopener" data-i18n="support.tshirtBtn">応援Tシャツを申し込む</a>
     <div class="s-text" data-i18n-html="support.text2">
-      これまでのご寄付に心から感謝いたします。<br>
+      Tシャツは3デザイン×各2色、綿素材とドライ素材から選べます。<br>
+      ご寄付も受け付けています。ご寄付いただいた方には、世界選手権の開催地
+      クロスノの実在地形で飛べる<b>特別版アプリ</b>をお届けします。
+    </div>
+    <a class="s-btn insta" href="https://www.instagram.com/hotairballoongames2026/"
+       target="_blank" rel="noopener" data-i18n="support.instaBtn">寄付のご案内はInstagramへ</a>
+  </div>
+  <!-- 2026-10-15 0:00(日本時間)以降の応援欄。寄付のお礼と、サポーター版の購入のお願い -->
+  <div class="r-support" data-from="2026-10-14T15:00:00Z" style="display:none">
+    <div class="s-title" data-i18n="supportNext.title">🎈 熱気球フライトを応援しよう!</div>
+    <div class="s-text" data-i18n-html="supportNext.text">
+      これまでのご寄付と、応援Tシャツへのたくさんのお申し込みに心から感謝いたします。<br>
       今後は、サーバーの維持と新しいエリア・機能の開発にかかる費用の一部を、
       世界各地のフライトエリアを収録した有料の<b>サポーター版</b>のご購入という形でお願いすることにしました。
       購入ページは近日公開します。
     </div>
     <a class="s-btn insta" href="https://www.instagram.com/hotairballoongames2026/"
-       target="_blank" rel="noopener" data-i18n="support.instaBtn">最新情報はInstagramへ</a>
-    <script>
-      // 受付期限(data-until)を過ぎた案内を隠す。結果画面を開いたまま期限をまたいだ場合は
-      // 次に読み込んだときに消える(厳密さは不要)
-      document.querySelectorAll('#result [data-until]').forEach((el) => {
-        const until = Date.parse(el.dataset.until);
-        if (Number.isFinite(until) && Date.now() > until) el.style.display = 'none';
-      });
-    </script>
+       target="_blank" rel="noopener" data-i18n="supportNext.instaBtn">最新情報はInstagramへ</a>
   </div>
+  <script>
+    // 応援欄の切り替え: data-until の時刻を過ぎたら隠し、data-from の時刻を過ぎたら表示する。
+    // 判定はページを読み込んだ時点(開いたまま日付をまたいだ場合は次の読み込みで切り替わる)
+    (() => {
+      const now = Date.now();
+      document.querySelectorAll('#result [data-until]').forEach((el) => {
+        const t = Date.parse(el.dataset.until);
+        if (Number.isFinite(t) && now >= t) el.style.display = 'none';
+      });
+      document.querySelectorAll('#result [data-from]').forEach((el) => {
+        const t = Date.parse(el.dataset.from);
+        if (Number.isFinite(t) && now >= t) el.style.display = '';
+      });
+    })();
+  </script>
 </div>
 <button id="result-reopen" type="button" style="display:none" data-i18n="result.reopenBtn">結果を表示 ▴</button>
 
