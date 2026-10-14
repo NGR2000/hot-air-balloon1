@@ -167,7 +167,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 熱気球フライトを応援しよう!',
     'supportNext.text':
-      'これまでのご寄付と、応援Tシャツへのたくさんのお申し込みに心から感謝いたします。<br>' +
+      'これまでの多大なご声援、そして応援Tシャツへのたくさんのお申し込みに心から感謝いたします。<br>' +
       '今後は、サーバーの維持と新しいエリア・機能の開発にかかる費用の一部を、' +
       '世界各地のフライトエリアを収録した有料の<b>サポーター版</b>のご購入という形でお願いすることにしました。' +
       '購入ページは近日公開します。',
@@ -402,7 +402,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 Support Hot Air Balloon Flight!',
     'supportNext.text':
-      'Thank you so much for all your donations and support T-shirt orders.<br>' +
+      'Thank you so much for all your tremendous support, and for your many support T-shirt orders.<br>' +
       'From now on, we are asking for support toward server and development costs ' +
       'through purchases of the paid <b>Supporter Edition</b>, with flight areas from around the world. ' +
       'The purchase page is coming soon.',
@@ -637,7 +637,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 Apoie o Hot Air Balloon Flight!',
     'supportNext.text':
-      'Muito obrigado por todas as doações e pedidos de camisetas de apoio.<br>' +
+      'Muito obrigado por todo o enorme apoio e pelos muitos pedidos de camisetas de apoio.<br>' +
       'A partir de agora, pedimos apoio aos custos de servidor e desenvolvimento ' +
       'por meio da compra da <b>Edição Apoiador</b> paga, com áreas de voo do mundo todo. ' +
       'A página de compra estará disponível em breve.',
@@ -872,7 +872,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 Wesprzyj Hot Air Balloon Flight!',
     'supportNext.text':
-      'Serdecznie dziękujemy za wszystkie darowizny i zamówienia koszulek kibica.<br>' +
+      'Serdecznie dziękujemy za ogromne wsparcie oraz liczne zamówienia koszulek kibica.<br>' +
       'Od teraz prosimy o wsparcie kosztów serwerów i rozwoju ' +
       'poprzez zakup płatnej <b>wersji Supporter</b> z obszarami lotów z całego świata. ' +
       'Strona zakupu pojawi się wkrótce.',
@@ -1107,7 +1107,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 Soutenez Hot Air Balloon Flight !',
     'supportNext.text':
-      'Merci infiniment pour tous vos dons et vos commandes de T-shirts de soutien.<br>' +
+      'Merci infiniment pour vos encouragements et pour vos nombreuses commandes de T-shirts de soutien.<br>' +
       'Désormais, nous vous proposons de soutenir les frais de serveur et de développement ' +
       "en achetant l'<b>édition Supporter</b> payante, avec des zones de vol du monde entier. " +
       "La page d'achat sera bientôt disponible.",
@@ -1342,7 +1342,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 Unterstütze Hot Air Balloon Flight!',
     'supportNext.text':
-      'Vielen Dank für alle Spenden und Bestellungen von Fan-T-Shirts.<br>' +
+      'Vielen Dank für die großartige Unterstützung und die vielen Bestellungen von Fan-T-Shirts.<br>' +
       'Ab jetzt bitten wir um Unterstützung der Server- und Entwicklungskosten ' +
       'durch den Kauf der kostenpflichtigen <b>Supporter-Edition</b> mit Fluggebieten aus aller Welt. ' +
       'Die Kaufseite folgt in Kürze.',
@@ -1577,7 +1577,7 @@ const STR = {
     // 2026-10-15 0:00(日本時間)以降に表示する応援欄(index.html の data-from)
     'supportNext.title': '🎈 ¡Apoya Hot Air Balloon Flight!',
     'supportNext.text':
-      'Muchas gracias por todas las donaciones y los pedidos de camisetas de apoyo.<br>' +
+      'Muchas gracias por todo el enorme apoyo recibido y por los numerosos pedidos de camisetas de apoyo.<br>' +
       'A partir de ahora, pedimos apoyo para los costes de servidores y desarrollo ' +
       'mediante la compra de la <b>edición Supporter</b> de pago, con zonas de vuelo de todo el mundo. ' +
       'La página de compra estará disponible pronto.',
