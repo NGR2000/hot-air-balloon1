@@ -1,0 +1,92 @@
+熱気球フライト(Hot Air Balloon Flight Simulator)ソースコード公開ライセンス
+Copyright (c) 2026 [著作権者名]. All rights reserved.
+
+このリポジトリのソースコードは、内容を見ていただくために公開しています。
+オープンソースソフトウェアではありません。
+
+1. 閲覧
+   このリポジトリのソースコードを閲覧し、読むことができます。GitHubの利用規約で
+   認められた範囲で、GitHub上でフォークすることもできます(閲覧のためのものに限ります)。
+
+2. 個人での動作確認
+   個人の学習・検証のために、非営利でご自身のパソコン上で動かすことができます。
+
+3. 事前の書面による許可なく、次のことはできません
+   (a) 配布・公開を目的とした、複製・改変・派生物の作成
+   (b) 本ソフトウェアまたはその改変版の再配布・公開・ホスティング
+       (Webサイト、アプリストア、その他のサービスでの提供を含みます)
+   (c) 商用利用(販売、有料サービスとしての提供、広告収入を得るサービスでの利用を含みます)
+
+4. 名称・ロゴ
+   「熱気球フライト」「Hot Air Balloon Flight Simulator」その他の名称・ロゴ・キャラクターは、
+   このライセンスの対象外です。許可なく使用することはできません。
+
+5. 改善の提案(プルリクエストなど)
+   プルリクエストなどで改善を提案いただいた場合、その内容を著作権者が自由に利用・改変・
+   配布できることに同意いただいたものとします。
+
+6. 第三者のライブラリ・データ
+   次のものは、それぞれのライセンス・利用規約に従います(このライセンスより優先します)。
+   - three.js(MIT License。CDNから読み込み)
+   - 国土地理院 地理院タイル(標高タイル・写真。国土地理院コンテンツ利用規約、出典の明示が必要)
+   - 国土交通省 PLATEAU に由来する建物データ(CC BY 4.0)
+   - OpenStreetMap に由来する建物データ(ODbL 1.0、© OpenStreetMap contributors)
+     */data/buildings/ のうち OpenStreetMap に由来するデータは、ODbL の条件で利用できます。
+
+7. 無保証
+   本ソフトウェアは現状のまま提供され、明示・黙示を問わず、いかなる保証もありません。
+   本ソフトウェアの利用によって生じたいかなる損害についても、著作権者は責任を負いません。
+
+8. お問い合わせ・利用の許可
+   hotairballoonflight.support@gmail.com
+
+このライセンスは日本語版を正文とします。英語版は参考訳です。
+
+----------------------------------------------------------------------
+
+Hot Air Balloon Flight Simulator — Source-Available License
+Copyright (c) 2026 [Copyright holders]. All rights reserved.
+
+The source code in this repository is published so that people can read it.
+It is not open-source software.
+
+1. Viewing
+   You may view and read the source code in this repository. You may also fork it on
+   GitHub to the extent permitted by GitHub's Terms of Service (for viewing purposes only).
+
+2. Personal evaluation
+   You may run the software on your own computer for personal, non-commercial learning
+   and evaluation.
+
+3. Without prior written permission, you may not:
+   (a) copy, modify or create derivative works for the purpose of distribution or publication;
+   (b) redistribute, publish or host the software or any modified version
+       (including on websites, app stores or other services);
+   (c) use the software commercially (including selling it, offering it as a paid service,
+       or using it in an advertising-supported service).
+
+4. Names and logos
+   "熱気球フライト", "Hot Air Balloon Flight Simulator" and other names, logos and
+   characters are not licensed under this license and may not be used without permission.
+
+5. Contributions
+   By submitting a contribution (for example, a pull request), you agree that the copyright
+   holders may use, modify and distribute it freely.
+
+6. Third-party libraries and data
+   The following are subject to their own licenses and terms, which take precedence:
+   - three.js (MIT License; loaded from a CDN)
+   - GSI tiles (elevation and imagery; GSI Content Terms of Use, attribution required)
+   - Building data derived from MLIT PLATEAU (CC BY 4.0)
+   - Building data derived from OpenStreetMap (ODbL 1.0, © OpenStreetMap contributors)
+     Data in */data/buildings/ derived from OpenStreetMap is available under the ODbL.
+
+7. No warranty
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+   IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY DAMAGES ARISING FROM THE
+   USE OF THE SOFTWARE.
+
+8. Contact and permission requests
+   hotairballoonflight.support@gmail.com
+
+The Japanese version of this license is authoritative; the English version is a reference translation.
